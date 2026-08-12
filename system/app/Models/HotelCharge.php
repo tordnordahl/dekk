@@ -1,0 +1,3 @@
+<?php
+namespace App\Models;use Illuminate\Database\Eloquent\Model;use Illuminate\Database\Eloquent\Relations\BelongsTo;
+class HotelCharge extends Model{protected$guarded=[];protected$casts=['period_starts_on'=>'date','period_ends_on'=>'date','due_on'=>'date','invoiced_at'=>'datetime','paid_at'=>'datetime'];public function agreement():BelongsTo{return$this->belongsTo(HotelAgreement::class,'hotel_agreement_id');}public function customer():BelongsTo{return$this->belongsTo(Customer::class);}public function vehicle():BelongsTo{return$this->belongsTo(Vehicle::class);}public function booking():BelongsTo{return$this->belongsTo(Booking::class);}public function invoiceExport():BelongsTo{return$this->belongsTo(InvoiceExport::class);}}

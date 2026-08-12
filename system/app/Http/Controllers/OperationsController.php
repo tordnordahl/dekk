@@ -104,8 +104,8 @@ class OperationsController extends Controller
     {
         abort_unless($customer->organization_id===$request->user()->organization_id,404);
         $customer->load(['vehicles.tireSets.storageLocation','vehicles.tireSets.inspections.measurements','bookings'=>fn($q)=>$q->with('vehicle')->latest('starts_at')->limit(30),'quotes'=>fn($q)=>$q->with(['vehicle','items'])->latest()->limit(20),'workOrders'=>fn($q)=>$q->with(['vehicle','tasks'])->latest()->limit(20),'conversations']);
-        $agreements=\App\Models\HotelAgreement::with(['vehicle','tireSet'])->where('customer_id',$customer->id)->latest()->get();
-        return view('customers.show',compact('customer','agreements'));
+        app(\App\Services\HotelChargeService::class)->generate($customer->organization_id,$customer->id);$agreements=\App\Models\HotelAgreement::with(['vehicle','tireSet'])->where('customer_id',$customer->id)->latest()->get();$hotelCharges=\App\Models\HotelCharge::with(['vehicle','agreement'])->where('customer_id',$customer->id)->latest('due_on')->get();
+        return view('customers.show',compact('customer','agreements','hotelCharges'));
     }
 
     public function vehicleHistory(Request $request, Vehicle $vehicle): View

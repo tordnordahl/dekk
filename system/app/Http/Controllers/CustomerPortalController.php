@@ -10,6 +10,8 @@ use App\Models\ServiceProduct;
 use App\Models\TireProduct;
 use App\Models\TireSet;
 use App\Models\Vehicle;
+use App\Models\HotelCharge;
+use App\Services\HotelChargeService;
 use App\Services\AcceptedQuoteWorkflow;
 use App\Services\BookingAvailabilityService;
 use App\Services\CommunicationService;
@@ -80,7 +82,14 @@ class CustomerPortalController extends Controller
                 'products' => $this->portalProductOptions($set, $quantity),
             ];
         })->filter(fn ($recommendation) => $recommendation['quote'] || $recommendation['products']->isNotEmpty())->values();
-        return view('portal.show', compact('customer', 'token', 'services', 'slots', 'adminPreview', 'recommendations', 'preferredVehicleId', 'preferredServiceId'));
+        app(HotelChargeService::class)->generate($customer->organization_id,$customer->id);
+        $hotelCharges=HotelCharge::with('vehicle')->where('customer_id',$customer->id)->whereIn('status',['open','attached'])->oldest('due_on')->get();
+        return view('portal.show', compact('customer', 'token', 'services', 'slots', 'adminPreview', 'recommendations', 'preferredVehicleId', 'preferredServiceId','hotelCharges'));
+    }
+
+    public function payHotelCharge(string$token,HotelCharge$charge,HotelChargeService$service):RedirectResponse
+    {
+        $access=$this->access($token);abort_unless($charge->organization_id===$access->organization_id&&$charge->customer_id===$access->customer_id,404);[$payment,$plain]=$service->payment($charge);return redirect()->route('checkout.payment',[$payment,$plain]);
     }
 
     public function availability(Request $request, string $token, BookingAvailabilityService $availability)

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\HotelAgreement;
+use App\Models\HotelCharge;
 use App\Models\ServiceProduct;
 use App\Models\TireSet;
 use App\Models\Vehicle;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use App\Services\HotelChargeService;
+use App\Services\Accounting\AccountingExportService;
 
 class HotelAgreementController extends Controller
 {
@@ -43,5 +46,15 @@ class HotelAgreementController extends Controller
     public function count(Request $request, TireSet $tireSet): RedirectResponse
     {
         abort_unless($tireSet->organization_id===$request->user()->organization_id,404);$tireSet->update(['last_counted_at'=>now(),'last_counted_by'=>$request->user()->id]);DB::table('audit_logs')->insert(['organization_id'=>$tireSet->organization_id,'user_id'=>$request->user()->id,'action'=>'tire_set.counted','subject_type'=>TireSet::class,'subject_id'=>$tireSet->id,'ip_address'=>$request->ip(),'metadata'=>json_encode(['location_id'=>$tireSet->storage_location_id]),'created_at'=>now()]);return back()->with('success',$tireSet->code.' er kontrolltelt.');
+    }
+
+    public function payment(Request$request,HotelCharge$charge,HotelChargeService$service):RedirectResponse
+    {
+        abort_unless($charge->organization_id===$request->user()->organization_id,404);[$payment,$plain]=$service->payment($charge);return redirect()->route('checkout.payment',[$payment,$plain]);
+    }
+
+    public function invoice(Request$request,HotelCharge$charge,HotelChargeService$service,AccountingExportService$accounting):RedirectResponse
+    {
+        abort_unless($charge->organization_id===$request->user()->organization_id,404);abort_unless(in_array($request->user()->role,['owner','admin','manager'],true),403);[$payment]=$service->payment($charge);$invoice=$payment->invoiceExport;$connection=$accounting->activeConnection($charge->organization_id);if(!$connection)return back()->withErrors(['hotel_charge'=>'Ingen aktiv regnskapskobling.']);$accounting->queue($invoice,$accounting->providerName($connection));if(!$accounting->processQueued($invoice))return back()->withErrors(['hotel_charge'=>$invoice->fresh()->last_error?:'Fakturaen kunne ikke sendes.']);$payment->update(['status'=>'expired','payment_method'=>'invoice','provider'=>'accounting','provider_status'=>'INVOICED','invoiced_at'=>now()]);return back()->with('success','Halvårskravet er sendt til regnskapssystemet.');
     }
 }

@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Dagens ubetalte jobber faktureres samlet etter stengetid.
         $schedule->command('checkout:invoice-expired')->dailyAt('23:55')->withoutOverlapping();
         $schedule->command('billing:prepare')->monthlyOn(1, '02:30')->withoutOverlapping();
+        $schedule->command('hotel:generate-charges')->dailyAt('02:15')->withoutOverlapping();
         $schedule->command('backup:database')->dailyAt('03:15')->withoutOverlapping();
         $schedule->command('system:health')->everyFiveMinutes()->withoutOverlapping();
         $schedule->command('inventory:release-expired')->hourly()->withoutOverlapping();

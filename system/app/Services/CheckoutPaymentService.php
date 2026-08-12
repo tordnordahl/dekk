@@ -23,6 +23,7 @@ class CheckoutPaymentService
                 'status' => 'cancelled',
                 'last_error' => 'Betalt med '.match($method){'vipps'=>'Vipps','cash'=>'kontant',default=>'bankterminal'}.': '.$providerReference,
             ]);
+            \App\Models\HotelCharge::where('invoice_export_id',$locked->invoice_export_id)->whereIn('status',['open','attached'])->update(['status'=>'paid','paid_at'=>now(),'updated_at'=>now()]);
             return $locked->fresh(['booking.customer', 'booking.vehicle', 'invoiceExport']);
         });
 

@@ -117,6 +117,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::get('/dekkhotellavtaler', [HotelAgreementController::class, 'index'])->name('hotel-agreements.index');
     Route::post('/dekkhotellavtaler', [HotelAgreementController::class, 'store'])->name('hotel-agreements.store');
     Route::patch('/dekkhotellavtaler/{agreement}/status', [HotelAgreementController::class, 'status'])->name('hotel-agreements.status');
+    Route::post('/dekkhotellkrav/{charge}/betal', [HotelAgreementController::class, 'payment'])->name('hotel-charges.payment');
+    Route::post('/dekkhotellkrav/{charge}/fakturer', [HotelAgreementController::class, 'invoice'])->middleware('role:owner,admin,manager')->name('hotel-charges.invoice');
     Route::post('/lager/hjulsett/{tireSet}/tell', [HotelAgreementController::class, 'count'])->name('tire-sets.count');
     Route::get('/lagerkart', [WarehouseController::class, 'map'])->name('warehouse.map');
     Route::post('/lager/hjulsett', [OperationsController::class, 'storeTireSet'])->name('tire-sets.store');
@@ -228,3 +230,4 @@ Route::post('/kundeportal/{token}/ny-time', [CustomerPortalController::class, 'c
 Route::post('/kundeportal/{token}/booking/{booking}', [CustomerPortalController::class, 'booking'])->middleware('throttle:10,1')->name('portal.booking');
 Route::post('/kundeportal/{token}/tilbud/{quote}', [CustomerPortalController::class, 'quote'])->middleware('throttle:10,1')->name('portal.quote');
 Route::post('/kundeportal/{token}/hjulsett/{tireSet}/bestill', [CustomerPortalController::class, 'orderTires'])->middleware('throttle:5,1')->name('portal.tires.order');
+Route::post('/kundeportal/{token}/dekkhotellkrav/{charge}/betal', [CustomerPortalController::class, 'payHotelCharge'])->middleware('throttle:5,1')->name('portal.hotel-charge.pay');

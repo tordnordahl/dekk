@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use App\Models\CheckoutPayment;
+use App\Models\HotelCharge;
 use RuntimeException;
 use Throwable;
 
@@ -18,12 +19,16 @@ class AccountingExportService
     public function createFromBooking(Booking $booking, bool $allowAutoExport = true): InvoiceExport
     {
         $booking->loadMissing(['customer', 'services']);
+        app(\App\Services\HotelChargeService::class)->generate($booking->organization_id, $booking->customer_id);
         $total = (int) ($booking->agreed_price_cents ?? 0);
         $lines = $booking->services->isNotEmpty() ? $booking->services->map(function ($service) {
             $gross = (int)$service->pivot->price_cents; $rate = (float)$service->vat_rate;
             return ['description'=>$service->pivot->service_name ?: $service->name,'quantity'=>1,'unit_price_cents'=>$gross,
                 'vat_rate'=>$rate,'total_cents'=>$gross];
         })->values()->all() : [['description'=>$booking->service_name,'quantity'=>1,'unit_price_cents'=>$total,'vat_rate'=>25,'total_cents'=>$total]];
+        if(str_contains((string)$booking->notes,'[HOTEL-CHARGE:'))$lines=[];
+        $hotelCharges = HotelCharge::where('organization_id',$booking->organization_id)->where('customer_id',$booking->customer_id)->where('status','open')->orderBy('due_on')->get();
+        foreach($hotelCharges as$charge)$lines[]=['description'=>'Dekkhotell '.$charge->period_starts_on->format('d.m.Y').'–'.$charge->period_ends_on->format('d.m.Y'),'quantity'=>1,'unit_price_cents'=>$charge->amount_cents,'vat_rate'=>25,'total_cents'=>$charge->amount_cents];
         $lineTotal = (int) collect($lines)->sum('total_cents');
         // Tjenestelinjene er fasiten for eksporten. Dette hindrer differanser hvis
         // bookingens sammendragspris er blitt utdatert.
@@ -37,6 +42,7 @@ class AccountingExportService
             'subtotal_cents' => $subtotal, 'vat_cents' => $total - $subtotal, 'total_cents' => $total,
         ];
         $invoice = InvoiceExport::firstOrCreate(['booking_id' => $booking->id], $attributes);
+        if($invoice->wasRecentlyCreated&&$hotelCharges->isNotEmpty())HotelCharge::whereIn('id',$hotelCharges->pluck('id'))->update(['booking_id'=>$booking->id,'invoice_export_id'=>$invoice->id,'status'=>'attached','updated_at'=>now()]);
         $reactivated = $invoice->status === 'cancelled';
         if ($reactivated) $invoice->update([...$attributes, 'public_id'=>$invoice->public_id, 'status'=>'ready', 'provider'=>null, 'queued_at'=>null, 'failed_at'=>null, 'last_error'=>null]);
 
@@ -78,6 +84,7 @@ class AccountingExportService
             if (!$invoice->request_key) $invoice->update(['provider'=>$provider,'request_key'=>(string)Str::uuid()]);
             $externalId = $this->exporter($provider)->export($invoice, $this->credentials($connection));
             $invoice->update(['status'=>'exported','provider'=>$provider,'external_id'=>$externalId,'attempts'=>$invoice->attempts+1,'exported_at'=>now(),'last_error'=>null]);
+            HotelCharge::where('invoice_export_id',$invoice->id)->whereIn('status',['open','attached'])->update(['status'=>'invoiced','invoiced_at'=>now(),'updated_at'=>now()]);
             $this->audit($invoice, 'accounting.export.succeeded', ['provider'=>$provider,'external_id'=>$externalId]);
             return true;
         } catch (Throwable $exception) {
