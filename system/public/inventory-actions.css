@@ -1,1 +1,35 @@
-.inventory-workspace th:last-child,.inventory-workspace td:last-child{width:310px}.inventory-workspace .row-actions{display:grid;grid-template-columns:1fr;gap:9px;min-width:270px}.row-action-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.inventory-workspace .row-action-links .mini-action{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;width:100%;padding:7px 10px;border:1px solid #d9e6df;border-radius:9px;background:#f1f6f3;color:#176541;font-size:11px;font-weight:850;text-decoration:none;cursor:pointer}.inventory-workspace .row-action-links .mini-action:hover{border-color:#91b9a4;background:#e8f3ed}.row-action-links .mini-action span{font-size:13px}.inventory-workspace .row-status-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px;margin:0}.inventory-workspace .row-status-form label{display:grid;gap:4px;margin:0}.inventory-workspace .row-status-form label>span{color:#68776f;font-size:10px;font-weight:850;letter-spacing:.04em}.inventory-workspace .row-status-form select{display:block;width:100%;min-width:0;min-height:38px;padding:7px 32px 7px 10px;border:1px solid #cad9d1;border-radius:9px;background-color:#fff;color:#173027;font-size:12px;font-weight:750;line-height:1.2}.inventory-workspace .row-status-form button{min-height:38px;padding:7px 12px;border:0;border-radius:9px;background:#176b46;color:#fff;font-size:11px;font-weight:850;cursor:pointer}.inventory-workspace .row-status-form button:hover{background:#115b3a}@media(max-width:900px){.inventory-workspace th:last-child,.inventory-workspace td:last-child{width:260px}.inventory-workspace .row-actions{min-width:230px}.inventory-workspace .row-status-form{grid-template-columns:1fr}.inventory-workspace .row-status-form button{width:100%}}@media(max-width:650px){.inventory-workspace th:last-child,.inventory-workspace td:last-child{width:auto}.inventory-workspace .row-actions{min-width:210px}}
+.inventory-workspace th:last-child,
+.inventory-workspace td:last-child{width:245px}
+
+.inventory-workspace .row-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-width:220px}
+.row-current-status{display:inline-flex;align-items:center;min-height:32px;padding:6px 10px;border-radius:999px;background:#edf4f0;color:#496158;font-size:11px;font-weight:850;white-space:nowrap}
+.row-action-menu{min-width:118px}
+.row-action-menu>summary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 11px;border:1px solid #d4e1da;border-radius:10px;background:#fff;color:#176541;font-size:12px;font-weight:850;list-style:none;cursor:pointer;white-space:nowrap}
+.row-action-menu>summary::-webkit-details-marker{display:none}
+.row-action-menu>summary:hover,.row-action-menu[open]>summary{border-color:#8db9a2;background:#eef7f2}
+.row-action-menu>summary span{font-size:10px;letter-spacing:1px}
+.inventory-workspace .row-actions:has(.row-action-menu[open]){display:block}
+.inventory-workspace .row-actions:has(.row-action-menu[open]) .row-current-status{display:none}
+.row-action-menu[open]>summary{width:100%}
+.row-action-menu-content{width:280px;margin-top:7px;margin-left:auto;padding:11px;border:1px solid #d8e3dd;border-radius:13px;background:#fff;box-shadow:0 10px 26px rgba(14,42,29,.12)}
+.row-action-links{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.inventory-workspace .row-action-links .mini-action{display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;width:100%;padding:7px 9px;border:1px solid #d9e6df;border-radius:9px;background:#f1f6f3;color:#176541;font-size:11px;font-weight:850;text-decoration:none;cursor:pointer}
+.inventory-workspace .row-action-links .mini-action:hover{border-color:#91b9a4;background:#e8f3ed}
+.inventory-workspace .row-status-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px;margin:0;padding-top:10px;border-top:1px solid #e2eae6}
+.inventory-workspace .row-status-form label{display:grid;gap:4px;margin:0}
+.inventory-workspace .row-status-form label>span{color:#68776f;font-size:10px;font-weight:850}
+.inventory-workspace .row-status-form select{display:block;width:100%;min-width:0;min-height:38px;padding:7px 30px 7px 9px;border:1px solid #cad9d1;border-radius:9px;background-color:#fff;color:#173027;font-size:12px;font-weight:750}
+.inventory-workspace .row-status-form button{min-height:38px;padding:7px 11px;border:0;border-radius:9px;background:#176b46;color:#fff;font-size:11px;font-weight:850;cursor:pointer}
+.inventory-workspace .row-status-form button:hover{background:#115b3a}
+
+@media(max-width:900px){
+  .inventory-workspace th:last-child,.inventory-workspace td:last-child{width:205px}
+  .inventory-workspace .row-actions{min-width:185px}
+  .row-current-status{display:none}
+}
+@media(max-width:650px){
+  .inventory-workspace th:last-child,.inventory-workspace td:last-child{width:auto}
+  .inventory-workspace .row-actions{min-width:0;justify-content:flex-start}
+  .row-action-menu-content{width:min(280px,calc(100vw - 48px));padding:12px;border-radius:14px}
+  .row-current-status{display:inline-flex}
+}
