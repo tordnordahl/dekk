@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\CheckoutPayment;
 use App\Models\StorageLocation;
 use App\Models\TireSet;
 use App\Models\TireInspection;
@@ -591,7 +592,7 @@ class OperationsController extends Controller
         abort_unless($booking->organization_id === $request->user()->organization_id, 404);
         abort_unless(in_array($request->user()->role, ['owner','admin','manager'], true), 403);
         if (in_array($booking->status, ['cancelled','no_show'], true)) return back()->withErrors(['booking'=>'En avbrutt eller uteblitt booking kan ikke fullføres.']);
-        $data=$request->validate(['return_to_hotel'=>['required','boolean'],'tire_set_id'=>['nullable','integer','required_if:return_to_hotel,1']]);
+        $data=$request->validate(['return_to_hotel'=>['nullable','boolean'],'tire_set_id'=>['nullable','integer','required_if:return_to_hotel,1']]);
         $tireSet=null;
         if($request->boolean('return_to_hotel'))$tireSet=TireSet::where('organization_id',$booking->organization_id)->where('vehicle_id',$booking->vehicle_id)->findOrFail($data['tire_set_id']);
         $invoice=DB::transaction(function () use ($booking, $accounting, $request, $workflow, $tireSet, $hotel) {
@@ -605,16 +606,18 @@ class OperationsController extends Controller
                 foreach(['Mottak: kontroller og skann hjulsett','Vask hjulsett','Mål mønsterdybde på alle fire hjul','Kontroller tilstand og dokumenter avvik','Tildel lagerplass og sett hjulsett på lager']as$position=>$name)$order->tasks()->updateOrCreate(['name'=>$name],['required'=>true,'completed'=>false,'completed_by'=>null,'completed_at'=>null,'position'=>20+$position]);
                 $hotel->ensureAgreement($tireSet);
             }
-            $invoice=$accounting->createFromBooking($booking);
+            // Fullføring lager grunnlaget, men betaling/faktura velges eksplisitt i neste steg.
+            $invoice=$accounting->createFromBooking($booking, false);
             DB::table('audit_logs')->insert(['organization_id'=>$booking->organization_id,'user_id'=>$request->user()->id,'action'=>'booking.completed','subject_type'=>Booking::class,'subject_id'=>$booking->id,'metadata'=>json_encode(['invoice_export_id'=>$invoice->id,'tire_set_returned_id'=>$tireSet?->id]),'created_at'=>now()]);
             return $invoice;
         });
-        if($invoice->status==='queued'){
-            $sent=$accounting->processQueued($invoice);
-            $hotelMessage=$tireSet?' Hjulsettet står i Mottak med oppgaver for vask, fire målinger og lagerplass.':'';
-            return back()->with($sent?'success':'warning',($sent?'Jobben er fullført, og fakturautkastet er sendt til regnskapssystemet.':'Jobben er fullført, men regnskapseksporten feilet. Se konkret feilmelding under Admin → Regnskap.').$hotelMessage);
-        }
-        return back()->with('success',$tireSet?'Jobben er fullført. Hjulsettet står i Mottak, og vask, måling og lagring er lagt i arbeidskøen.':'Jobben er fullført, og fakturagrunnlaget ligger klart under Admin → Regnskap.');
+        $plain=Str::random(64);
+        $payment=CheckoutPayment::firstOrCreate(
+            ['booking_id'=>$booking->id,'invoice_export_id'=>$invoice->id],
+            ['public_id'=>(string)Str::uuid(),'organization_id'=>$booking->organization_id,'amount_cents'=>$invoice->total_cents,'terminal_reference'=>'DP-'.Str::upper(Str::random(18)),'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->addHours(24)]
+        );
+        if(!$payment->wasRecentlyCreated)$payment->update(['amount_cents'=>$invoice->total_cents,'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->addHours(24),'last_error'=>null]);
+        return redirect()->route('checkout.payment',[$payment,$plain])->with('success',$tireSet?'Jobben er fullført. Hjulsettet er flyttet til Mottak. Velg nå betaling.':'Jobben er fullført. Velg nå hvordan kunden skal betale.');
     }
 
     public function reopenBooking(Request $request, Booking $booking): RedirectResponse

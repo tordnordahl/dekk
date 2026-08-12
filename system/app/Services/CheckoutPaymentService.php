@@ -19,7 +19,7 @@ class CheckoutPaymentService
             ]);
             $locked->invoiceExport()->where('status', '!=', 'exported')->update([
                 'status' => 'cancelled',
-                'last_error' => 'Betalt med '.($method === 'vipps' ? 'Vipps' : 'bankterminal').': '.$providerReference,
+                'last_error' => 'Betalt med '.match($method){'vipps'=>'Vipps','cash'=>'kontant',default=>'bankterminal'}.': '.$providerReference,
             ]);
             return $locked->fresh(['booking.customer', 'booking.vehicle', 'invoiceExport']);
         });
@@ -34,7 +34,7 @@ class CheckoutPaymentService
         $customer = $payment->booking?->customer;
         $recipient = trim((string) $payment->receipt_recipient);
         if (! $customer || $recipient === '') return;
-        $method = $payment->payment_method === 'vipps' ? 'Vipps' : 'bankterminal';
+        $method = match($payment->payment_method){'vipps'=>'Vipps','cash'=>'kontant',default=>'bankterminal'};
         $amount = number_format($payment->amount_cents / 100, 2, ',', ' ');
         $body = "Kvittering fra {$customer->organization?->name}\n"
             ."Betalt: {$amount} {$payment->currency}\n"

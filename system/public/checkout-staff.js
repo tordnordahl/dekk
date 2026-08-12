@@ -1,0 +1,1 @@
+document.addEventListener('DOMContentLoaded',()=>{const button=document.querySelector('[data-copy-payment-link]');if(!button)return;button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(window.location.href);button.textContent='Lenken er kopiert ✓'}catch(error){window.prompt('Kopier betalingslenken:',window.location.href)}})});

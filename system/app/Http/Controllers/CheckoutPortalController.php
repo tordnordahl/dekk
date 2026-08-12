@@ -10,6 +10,7 @@ use App\Models\Organization;
 use App\Models\Vehicle;
 use App\Services\Accounting\AccountingPlatformSettings;
 use App\Services\CheckoutPaymentService;
+use App\Services\Accounting\AccountingExportService;
 use App\Services\VippsPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -62,14 +63,18 @@ class CheckoutPortalController extends Controller
         return $this->paymentView($organization, $payment->booking->vehicle, $payment->booking, $payment->invoiceExport, $payment, $token);
     }
 
-    public function start(Request $request, CheckoutPayment $payment, string $token, VippsPaymentService $vipps): RedirectResponse
+    public function start(Request $request, CheckoutPayment $payment, string $token, VippsPaymentService $vipps, CheckoutPaymentService $payments, AccountingExportService $accounting): RedirectResponse
     {
         $this->validToken($payment, $token);
         $customer = $payment->booking()->with('customer')->first()?->customer;
         $data = $request->validate([
-            'payment_method' => ['required', 'in:terminal,vipps'], 'receipt_channel' => ['required', 'in:email,sms,print,none'],
+            'payment_method' => ['required', 'in:terminal,vipps,cash,invoice'], 'receipt_channel' => ['nullable', 'in:email,sms,print,none'],
             'receipt_recipient' => ['nullable', 'string', 'max:255'],
         ]);
+        if (in_array($data['payment_method'], ['cash','invoice'], true)) {
+            abort_unless($request->user() && $request->user()->organization_id === $payment->organization_id, 403);
+        }
+        if ($data['payment_method'] !== 'invoice' && empty($data['receipt_channel'])) return back()->withErrors(['receipt_channel'=>'Velg hvordan kunden skal få kvitteringen.']);
         $recipient = trim((string) ($data['receipt_recipient'] ?? ''));
         if ($data['receipt_channel'] === 'email') {
             $recipient = $recipient ?: (string) $customer?->email;
@@ -79,7 +84,20 @@ class CheckoutPortalController extends Controller
             if (! preg_match('/^(?:\+47)?[49]\d{7}$/', $recipient)) return back()->withErrors(['receipt_recipient' => 'Skriv inn et gyldig norsk mobilnummer.']);
         } else $recipient = '';
         if ($payment->status === 'failed') $payment->update(['terminal_reference' => 'DP-'.Str::upper(Str::random(18)), 'provider_reference' => null, 'provider_status' => null, 'status' => 'pending']);
-        $payment->update(['payment_method' => $data['payment_method'], 'receipt_channel' => $data['receipt_channel'], 'receipt_recipient' => $recipient ?: null, 'last_error' => null]);
+        $payment->update(['payment_method' => $data['payment_method'], 'receipt_channel' => $data['receipt_channel'] ?? null, 'receipt_recipient' => $recipient ?: null, 'last_error' => null]);
+        if ($data['payment_method'] === 'cash') {
+            $payments->complete($payment, 'cash', 'KONTANT-'.now()->format('YmdHis'), 'APPROVED');
+            return redirect()->route('checkout.receipt', [$payment, $token]);
+        }
+        if ($data['payment_method'] === 'invoice') {
+            $invoice=$payment->invoiceExport;
+            $connection=$accounting->activeConnection($payment->organization_id);
+            if(!$connection)return back()->withErrors(['payment'=>'Ingen aktiv regnskapskobling. Koble til Fiken, Tripletex eller PowerOffice først.']);
+            $accounting->queue($invoice,$accounting->providerName($connection));
+            if(!$accounting->processQueued($invoice))return back()->withErrors(['payment'=>$invoice->fresh()->last_error?:'Fakturaen kunne ikke sendes.']);
+            $payment->update(['status'=>'expired','payment_method'=>'invoice','provider'=>'accounting','provider_status'=>'INVOICED','invoiced_at'=>now()]);
+            return redirect()->route('checkout.payment',[$payment,$token])->with('success','Fakturaen er sendt til regnskapssystemet.');
+        }
         if ($data['payment_method'] === 'terminal') {
             $payment->update(['provider' => 'terminal', 'provider_status' => 'WAITING_FOR_CARD', 'status' => 'processing']);
             return back()->with('success', 'Beløpet er klart. Følg instruksjonene på bankterminalen.');

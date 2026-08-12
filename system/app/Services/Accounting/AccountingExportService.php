@@ -15,7 +15,7 @@ use Throwable;
 
 class AccountingExportService
 {
-    public function createFromBooking(Booking $booking): InvoiceExport
+    public function createFromBooking(Booking $booking, bool $allowAutoExport = true): InvoiceExport
     {
         $booking->loadMissing(['customer', 'services']);
         $total = (int) ($booking->agreed_price_cents ?? 0);
@@ -45,7 +45,7 @@ class AccountingExportService
         if ($zettleCheckout && Schema::hasTable('checkout_payments')) {
             CheckoutPayment::firstOrCreate(['booking_id'=>$booking->id,'invoice_export_id'=>$invoice->id],['public_id'=>(string)Str::uuid(),'organization_id'=>$booking->organization_id,'amount_cents'=>$invoice->total_cents,'terminal_reference'=>'DP-'.Str::upper(Str::random(18)),'lookup_token_hash'=>hash('sha256',Str::random(64)),'expires_at'=>now()->addHours(24)]);
         }
-        if (!$zettleCheckout && ($invoice->wasRecentlyCreated || $reactivated) && ($connection = $this->activeConnection($booking->organization_id)) && $this->credentials($connection)['auto_export'] === true) {
+        if ($allowAutoExport && !$zettleCheckout && ($invoice->wasRecentlyCreated || $reactivated) && ($connection = $this->activeConnection($booking->organization_id)) && $this->credentials($connection)['auto_export'] === true) {
             $this->queue($invoice, $this->providerName($connection));
         }
         return $invoice;

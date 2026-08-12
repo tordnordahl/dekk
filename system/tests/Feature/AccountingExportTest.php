@@ -37,7 +37,7 @@ class AccountingExportTest extends TestCase
         $this->assertDatabaseHas('invoice_exports',['booking_id'=>$booking->id,'status'=>'ready','total_cents'=>69900,'vat_cents'=>13980]);
     }
 
-    public function test_accounting_key_is_encrypted_and_auto_export_queues(): void
+    public function test_accounting_key_is_encrypted_but_completion_waits_for_payment_choice(): void
     {
         ['org'=>$org,'user'=>$user,'booking'=>$booking]=$this->setupBooking();
         $secret='fiken-secret-token';
@@ -46,7 +46,8 @@ class AccountingExportTest extends TestCase
         $this->assertStringNotContainsString($secret,$setting->encrypted_credentials);
         $this->assertSame($secret,json_decode(Crypt::decryptString($setting->encrypted_credentials),true)['api_key']);
         $this->actingAs($user)->post(route('bookings.complete',$booking))->assertRedirect();
-        $this->assertDatabaseHas('invoice_exports',['booking_id'=>$booking->id,'status'=>'queued','provider'=>'fiken']);
+        $this->assertDatabaseHas('invoice_exports',['booking_id'=>$booking->id,'status'=>'ready','provider'=>null]);
+        $this->assertDatabaseHas('checkout_payments',['booking_id'=>$booking->id,'status'=>'pending','amount_cents'=>69900]);
     }
 
     public function test_fiken_export_uses_draft_lines_in_ore_and_does_not_send_invoice(): void
