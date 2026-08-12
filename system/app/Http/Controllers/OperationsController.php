@@ -614,9 +614,9 @@ class OperationsController extends Controller
         $plain=Str::random(64);
         $payment=CheckoutPayment::firstOrCreate(
             ['booking_id'=>$booking->id,'invoice_export_id'=>$invoice->id],
-            ['public_id'=>(string)Str::uuid(),'organization_id'=>$booking->organization_id,'amount_cents'=>$invoice->total_cents,'terminal_reference'=>'DP-'.Str::upper(Str::random(18)),'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->addHours(24)]
+            ['public_id'=>(string)Str::uuid(),'organization_id'=>$booking->organization_id,'amount_cents'=>$invoice->total_cents,'terminal_reference'=>'DP-'.Str::upper(Str::random(18)),'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->endOfDay()]
         );
-        if(!$payment->wasRecentlyCreated)$payment->update(['amount_cents'=>$invoice->total_cents,'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->addHours(24),'last_error'=>null]);
+        if(!$payment->wasRecentlyCreated)$payment->update(['amount_cents'=>$invoice->total_cents,'lookup_token_hash'=>hash('sha256',$plain),'expires_at'=>now()->endOfDay(),'last_error'=>null]);
         return redirect()->route('checkout.payment',[$payment,$plain])->with('success',$tireSet?'Jobben er fullført. Hjulsettet er flyttet til Mottak. Velg nå betaling.':'Jobben er fullført. Velg nå hvordan kunden skal betale.');
     }
 

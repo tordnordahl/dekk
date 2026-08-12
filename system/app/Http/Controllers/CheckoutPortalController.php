@@ -99,7 +99,7 @@ class CheckoutPortalController extends Controller
             return redirect()->route('checkout.payment',[$payment,$token])->with('success','Fakturaen er sendt til regnskapssystemet.');
         }
         if ($data['payment_method'] === 'terminal') {
-            $payment->update(['provider' => 'terminal', 'provider_status' => 'WAITING_FOR_CARD', 'status' => 'processing']);
+            $payment->update(['provider' => 'terminal', 'provider_status' => 'WAITING_FOR_CARD', 'provider_payload'=>['attempt_expires_at'=>now()->addSeconds(60)->toIso8601String()], 'status' => 'processing']);
             return back()->with('success', 'Beløpet er klart. Følg instruksjonene på bankterminalen.');
         }
         try {
@@ -122,7 +122,10 @@ class CheckoutPortalController extends Controller
     public function status(CheckoutPayment $payment, string $token, VippsPaymentService $vipps): JsonResponse
     {
         $this->validToken($payment, $token);
-        if ($payment->payment_method === 'vipps' && $payment->status === 'processing') {
+        if ($payment->payment_method === 'terminal' && $payment->status === 'processing') {
+            $deadline=data_get($payment->provider_payload,'attempt_expires_at');
+            if($deadline && now()->gte(now()->parse($deadline)))$payment->update(['status'=>'failed','provider_status'=>'TIMED_OUT','last_error'=>'Ingen kortbetaling ble registrert innen 60 sekunder. Prøv igjen eller velg en annen betalingsmåte.']);
+        } elseif ($payment->payment_method === 'vipps' && $payment->status === 'processing') {
             try { $payment = $vipps->synchronize($payment); } catch (Throwable $exception) { report($exception); }
         }
         return response()->json(['status' => $payment->status, 'provider_status' => $payment->provider_status, 'paid_at' => $payment->paid_at?->toIso8601String()]);
@@ -154,14 +157,6 @@ class CheckoutPortalController extends Controller
         $payment->update(['receipt_channel'=>'email','receipt_recipient'=>$email,'receipt_sent_at'=>null]);
         $service->sendReceipt($payment->fresh(['booking.customer.organization','booking.vehicle','invoiceExport']));
         return back()->with('success','Kvitteringen er lagt i e-postkøen på nytt til '.$email.'.');
-    }
-
-    public function complete(Request $request, CheckoutPayment $payment, CheckoutPaymentService $service): RedirectResponse
-    {
-        $data = $request->validate(['provider_reference' => ['required', 'string', 'max:255']]);
-        abort_unless($payment->organization_id === $request->user()->organization_id, 404);
-        $service->complete($payment, 'terminal', $data['provider_reference'], 'APPROVED');
-        return back()->with('success', 'Terminalbetalingen er bekreftet. Faktura sendes ikke.');
     }
 
     private function paymentView(Organization $organization, Vehicle $vehicle, Booking $booking, InvoiceExport $invoice, CheckoutPayment $payment, string $plain): View
