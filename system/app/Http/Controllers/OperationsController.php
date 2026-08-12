@@ -20,6 +20,9 @@ use App\Services\WarehousePlacementService;
 use App\Services\BookingWorkflowService;
 use App\Services\TireHotelService;
 use App\Services\PostalCodeService;
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -387,7 +390,19 @@ class OperationsController extends Controller
         abort_if($ids->isEmpty(), 404);
         $sets = TireSet::with(['vehicle.customer', 'storageLocation'])->where('organization_id', $request->user()->organization_id)->whereIn('id', $ids)->get();
         abort_if($sets->isEmpty(), 404);
-        return view('inventory.labels', ['sets' => $sets]);
+        $qrCodes = $sets->mapWithKeys(function (TireSet $set): array {
+            $result = (new Builder(
+                writer: new SvgWriter(),
+                data: strtoupper($set->code),
+                errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+                size: 240,
+                margin: 8,
+            ))->build();
+
+            return [$set->id => $result->getDataUri()];
+        });
+
+        return view('inventory.labels', ['sets' => $sets, 'qrCodes' => $qrCodes]);
     }
 
     public function markLabelsPrinted(Request $request): JsonResponse

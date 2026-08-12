@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await video.play();
             running = true;
             cameraStatus.textContent = 'Leter etter etikett …';
-            const detector = new BarcodeDetector({formats: ['code_39', 'code_128', 'qr_code']});
+            const detector = new BarcodeDetector({formats: ['qr_code']});
             const scan = async () => {
                 if (!running) return;
                 try {
