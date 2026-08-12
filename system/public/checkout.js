@@ -14,7 +14,7 @@
             const response = await fetch(statusUrl, {headers: {Accept: 'application/json'}});
             if (!response.ok) return;
             const data = await response.json();
-            if (data.status === 'paid' || data.status === 'expired') {
+            if (data.status === 'paid' || data.status === 'expired' || data.status === 'failed') {
                 window.clearInterval(poll);
                 window.location.reload();
             }

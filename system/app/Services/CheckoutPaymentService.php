@@ -36,7 +36,7 @@ class CheckoutPaymentService
         if (! $customer || $recipient === '') return;
         $method = $payment->payment_method === 'vipps' ? 'Vipps' : 'bankterminal';
         $amount = number_format($payment->amount_cents / 100, 2, ',', ' ');
-        $body = "Kvittering fra {$payment->booking->organization?->name}\n"
+        $body = "Kvittering fra {$customer->organization?->name}\n"
             ."Betalt: {$amount} {$payment->currency}\n"
             ."Betalingsmåte: {$method}\n"
             ."Referanse: {$payment->terminal_reference}\n"

@@ -24,6 +24,8 @@ class AccountingController extends Controller
         $org = $request->user()->organization_id;
         $connection = IntegrationSetting::where('organization_id', $org)->whereIn('provider', ['accounting_fiken','accounting_tripletex','accounting_poweroffice'])->where('active', true)->first();
         $zettleConnection = IntegrationSetting::where('organization_id',$org)->where('provider','sales_zettle')->where('active',true)->first();
+        $vippsConnection = IntegrationSetting::where('organization_id',$org)->where('provider','payment_vipps')->first();
+        $terminalConnection = IntegrationSetting::where('organization_id',$org)->where('provider','payment_terminal')->first();
         $configuration = $connection ? json_decode(Crypt::decryptString($connection->encrypted_credentials), true) : [];
         $fikenPlatform=$platform->fiken();$tripletexPlatform=$platform->tripletex();$powerofficePlatform=$platform->poweroffice();$zettlePlatform=$platform->zettle();$superadmin=(bool)$request->user()->is_super_admin;
         return view('admin.accounting', [
@@ -38,7 +40,28 @@ class AccountingController extends Controller
             'powerofficePlatform'=>$superadmin?$powerofficePlatform:[], 'powerofficeConfigured'=>filled($powerofficePlatform['app_key']??null)&&filled($powerofficePlatform['subscription_key']??null),
             'zettlePlatform'=>$superadmin?$zettlePlatform:[], 'zettleConnection'=>$zettleConnection, 'zettleConfigured'=>app(ZettleOAuthService::class)->configured(),
             'zettlePilotEnabled'=>(bool)($zettlePlatform['pilot_enabled']??false),
+            'vippsConfigured'=>$vippsConnection?->active ?? false,
+            'vippsConfiguration'=>$vippsConnection ? json_decode(Crypt::decryptString($vippsConnection->encrypted_credentials), true) : [],
+            'terminalConfigured'=>$terminalConnection?->active ?? false,
+            'terminalConfiguration'=>$terminalConnection ? json_decode(Crypt::decryptString($terminalConnection->encrypted_credentials), true) : [],
         ]);
+    }
+
+    public function saveVipps(Request $request): RedirectResponse
+    {
+        $data=$request->validate(['client_id'=>['nullable','string','max:500'],'client_secret'=>['nullable','string','max:2000'],'subscription_key'=>['nullable','string','max:500'],'msn'=>['nullable','regex:/^[0-9]{4,10}$/'],'test'=>['nullable','boolean'],'active'=>['nullable','boolean']]);
+        $org=$request->user()->organization_id;$existing=IntegrationSetting::where('organization_id',$org)->where('provider','payment_vipps')->first();$old=$existing?json_decode(Crypt::decryptString($existing->encrypted_credentials),true):[];
+        $credentials=['client_id'=>$data['client_id']?:($old['client_id']??null),'client_secret'=>$data['client_secret']?:($old['client_secret']??null),'subscription_key'=>$data['subscription_key']?:($old['subscription_key']??null),'msn'=>$data['msn']?:($old['msn']??null),'test'=>$request->boolean('test')];
+        if($request->boolean('active')&&collect(['client_id','client_secret','subscription_key','msn'])->contains(fn($key)=>blank($credentials[$key])))return back()->withErrors(['payment'=>'Alle fire Vipps-opplysningene må fylles ut før Vipps aktiveres.']);
+        IntegrationSetting::updateOrCreate(['organization_id'=>$org,'provider'=>'payment_vipps'],['encrypted_credentials'=>Crypt::encryptString(json_encode($credentials,JSON_THROW_ON_ERROR)),'active'=>$request->boolean('active'),'updated_by'=>$request->user()->id]);
+        return back()->with('success','Vipps-oppsettet er lagret kryptert'.($request->boolean('active')?' og aktivert.':'.'));
+    }
+
+    public function saveTerminal(Request $request): RedirectResponse
+    {
+        $data=$request->validate(['name'=>['required','string','max:100'],'active'=>['nullable','boolean']]);$org=$request->user()->organization_id;
+        IntegrationSetting::updateOrCreate(['organization_id'=>$org,'provider'=>'payment_terminal'],['encrypted_credentials'=>Crypt::encryptString(json_encode(['mode'=>'manual','name'=>trim($data['name'])],JSON_THROW_ON_ERROR)),'active'=>$request->boolean('active'),'updated_by'=>$request->user()->id]);
+        return back()->with('success','Bankterminal er '.($request->boolean('active')?'aktivert':'deaktivert').'. DekkPilot lagrer aldri kort- eller PIN-data.');
     }
 
     public function connectFiken(Request $request, FikenOAuthService $oauth): RedirectResponse

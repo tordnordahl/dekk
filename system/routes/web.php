@@ -59,6 +59,10 @@ Route::match(['get','post'],'/system-cron/{token}',[SuperAdminOperationsControll
 Route::get('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'show'])->middleware('throttle:60,1')->name('checkout.show');
 Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'lookup'])->middleware('throttle:15,1')->name('checkout.lookup');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}',[CheckoutPortalController::class,'status'])->middleware('throttle:120,1')->name('checkout.status');
+Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vis',[CheckoutPortalController::class,'showPayment'])->middleware('throttle:60,1')->name('checkout.payment');
+Route::post('/utsjekk/betaling/{payment:public_id}/{token}/start',[CheckoutPortalController::class,'start'])->middleware('throttle:15,1')->name('checkout.start');
+Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vipps-retur',[CheckoutPortalController::class,'vippsReturn'])->middleware('throttle:60,1')->name('checkout.vipps.return');
+Route::get('/utsjekk/betaling/{payment:public_id}/{token}/kvittering',[CheckoutPortalController::class,'receipt'])->middleware('throttle:60,1')->name('checkout.receipt');
 Route::middleware('auth')->group(function () {
     Route::get('/tofaktor', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
     Route::post('/tofaktor', [TwoFactorController::class, 'verify'])->middleware('throttle:6,1')->name('two-factor.verify');
@@ -162,6 +166,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
         Route::put('/regnskap/plattform/tripletex', [AccountingController::class, 'saveTripletexPlatform'])->middleware('superadmin')->name('admin.accounting.tripletex.platform');
         Route::put('/regnskap/plattform/poweroffice', [AccountingController::class, 'savePowerOfficePlatform'])->middleware('superadmin')->name('admin.accounting.poweroffice.platform');
         Route::put('/regnskap/plattform/zettle', [AccountingController::class, 'saveZettlePlatform'])->middleware('superadmin')->name('admin.accounting.zettle.platform');
+        Route::put('/regnskap/betaling/vipps', [AccountingController::class, 'saveVipps'])->name('admin.accounting.vipps');
+        Route::put('/regnskap/betaling/terminal', [AccountingController::class, 'saveTerminal'])->name('admin.accounting.terminal');
         Route::get('/regnskap/zettle/koble-til', [AccountingController::class, 'connectZettle'])->name('admin.accounting.zettle.connect');
         Route::get('/regnskap/zettle/callback', [AccountingController::class, 'zettleCallback'])->name('admin.accounting.zettle.callback');
         Route::put('/regnskap', [AccountingController::class, 'save'])->name('admin.accounting.save');
