@@ -229,7 +229,8 @@ class CustomerPortalController extends Controller
         if ($lock) $query->lockForUpdate();
         $manufacturer = Str::lower(trim((string) $tireSet->manufacturer));
         $model = Str::lower(trim((string) $tireSet->model));
-        return $query->get()->sort(function ($left, $right) use ($manufacturer, $model) {
+        $availability=app(\App\Services\InventoryAvailabilityService::class);
+        return $query->get()->filter(fn($product)=>$availability->available($product)>=$quantity)->sort(function ($left, $right) use ($manufacturer, $model) {
             $score = fn ($product) => [
                 $manufacturer !== '' && Str::lower(trim($product->brand)) === $manufacturer ? 0 : 1,
                 $model !== '' && Str::lower(trim($product->model)) === $model ? 0 : 1,

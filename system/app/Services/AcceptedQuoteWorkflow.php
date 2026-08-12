@@ -3,12 +3,12 @@
 namespace App\Services;
 
 use App\Models\Quote;
-use App\Models\StockReservation;
 use App\Models\WorkOrder;
 use Illuminate\Support\Str;
 
 class AcceptedQuoteWorkflow
 {
+    public function __construct(private InventoryAvailabilityService $inventory){}
     public function create(Quote $quote): WorkOrder
     {
         $quote->loadMissing(['items', 'customer', 'vehicle']);
@@ -22,10 +22,7 @@ class AcceptedQuoteWorkflow
         foreach (['Kontroller bil og arbeidsordre', 'Monter valgte dekk', 'Kontroller TPMS og lufttrykk', 'Momentkontroll', 'Sluttkontroll og dokumentasjon'] as $position => $name) {
             $order->tasks()->firstOrCreate(['name' => $name], ['required' => true, 'position' => $position + 1]);
         }
-        if ($selected?->tire_product_id) StockReservation::firstOrCreate(
-            ['quote_id' => $quote->id, 'tire_product_id' => $selected->tire_product_id],
-            ['organization_id' => $quote->organization_id, 'work_order_id' => $order->id, 'quantity' => $selected->quantity, 'status' => 'reserved', 'expires_at' => now()->addDays(30)]
-        );
+        if ($selected?->tire_product_id) $this->inventory->reserve($quote->id,$order->id,$selected->tire_product_id,$quote->organization_id,$selected->quantity);
         return $order;
     }
 }

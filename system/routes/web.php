@@ -29,6 +29,7 @@ use App\Http\Controllers\TwoFactorController;
 use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\CheckoutPortalController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\SuperAdminOperationsController;
 
 // Lever nye CSS/JS-filer gjennom den vanlige frontcontrolleren. Enkelte delte
 // webhotell sender ikke /api/* videre til Laravel, men /index.php/* fungerer.
@@ -53,6 +54,7 @@ Route::middleware('guest')->group(function () {
 });
 Route::view('/vilkar', 'legal.terms')->name('legal.terms');
 Route::view('/personvern', 'legal.privacy')->name('legal.privacy');
+Route::match(['get','post'],'/system-cron/{token}',[SuperAdminOperationsController::class,'run'])->middleware('throttle:3,1')->name('system.cron');
 Route::get('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'show'])->middleware('throttle:60,1')->name('checkout.show');
 Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'lookup'])->middleware('throttle:15,1')->name('checkout.lookup');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}',[CheckoutPortalController::class,'status'])->middleware('throttle:120,1')->name('checkout.status');
@@ -65,6 +67,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth','superadmin'])->group(function(){Route::get('/superadmin',[SuperAdminController::class,'index'])->name('superadmin');Route::post('/superadmin/{organization}/ga-inn',[SuperAdminController::class,'enter'])->name('superadmin.enter');Route::post('/superadmin/avslutt',[SuperAdminController::class,'leave'])->name('superadmin.leave');Route::get('/superadmin/demo-oppdatering',[DemoUpdateController::class,'show'])->name('superadmin.demo-update');Route::post('/superadmin/demo-oppdatering',[DemoUpdateController::class,'run'])->middleware('throttle:3,10')->name('superadmin.demo-update.run');Route::get('/superadmin/systemoppdatering',[SuperAdminSystemUpdateController::class,'show'])->name('superadmin.system-update');Route::post('/superadmin/systemoppdatering',[SuperAdminSystemUpdateController::class,'run'])->middleware('throttle:2,10')->name('superadmin.system-update.run');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/git-oppdatering',[SuperAdminGitUpdateController::class,'show'])->name('superadmin.git-update');Route::post('/superadmin/git-oppdatering/koble-til',[SuperAdminGitUpdateController::class,'connect'])->middleware('throttle:5,1')->name('superadmin.git-update.connect');Route::post('/superadmin/git-oppdatering/kontroller',[SuperAdminGitUpdateController::class,'check'])->middleware('throttle:12,1')->name('superadmin.git-update.check');Route::post('/superadmin/git-oppdatering/hent',[SuperAdminGitUpdateController::class,'pull'])->middleware('throttle:10,1')->name('superadmin.git-update.pull');Route::post('/superadmin/git-oppdatering/synkroniser',[SuperAdminGitUpdateController::class,'synchronize'])->middleware('throttle:10,1')->name('superadmin.git-update.synchronize');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/epostserver',[SystemSettingsController::class,'serverMail'])->name('superadmin.server-mail');Route::put('/superadmin/epostserver',[SystemSettingsController::class,'saveServerMail'])->name('superadmin.server-mail.save');});
+Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/produksjonsdrift',[SuperAdminOperationsController::class,'show'])->name('superadmin.operations');Route::post('/superadmin/produksjonsdrift/cron',[SuperAdminOperationsController::class,'generate'])->middleware('throttle:3,10')->name('superadmin.operations.cron');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/1881',[SystemSettingsController::class,'phoneDirectory'])->name('superadmin.phone-directory');Route::put('/superadmin/1881',[SystemSettingsController::class,'savePhoneDirectory'])->name('superadmin.phone-directory.save');});
 
 Route::middleware(['auth','2fa','superadmin'])->group(function(){

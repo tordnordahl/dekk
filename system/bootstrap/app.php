@@ -27,6 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('billing:prepare')->monthlyOn(1, '02:30')->withoutOverlapping();
         $schedule->command('backup:database')->dailyAt('03:15')->withoutOverlapping();
         $schedule->command('system:health')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('inventory:release-expired')->hourly()->withoutOverlapping();
+        $schedule->command('accounting:verify')->dailyAt('04:00')->withoutOverlapping();
+        $schedule->command('privacy:cleanup')->dailyAt('04:30')->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

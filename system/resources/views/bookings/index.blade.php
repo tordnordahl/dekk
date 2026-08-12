@@ -37,7 +37,7 @@
         @forelse($bookings as $booking)
             @php($day=$booking->starts_at->toDateString())
             @if($day!==$lastDay)<div class="day-divider"><strong>{{ $booking->starts_at->isToday()?'I dag':($booking->starts_at->isTomorrow()?'I morgen':$booking->starts_at->translatedFormat('l d. F')) }}</strong><span>{{ $booking->starts_at->format('d.m.Y') }}</span></div>@php($lastDay=$day)@endif
-            <div class="booking-row {{ $booking->capacity_overbooked?'overbooked':'' }}">
+            <div id="booking-{{ $booking->id }}" class="booking-row {{ $booking->capacity_overbooked?'overbooked':'' }}">
                 <time>{{ $booking->starts_at->format('H:i') }}<small>{{ $booking->ends_at->format('H:i') }}</small></time>
                 <div class="booking-customer"><div class="booking-customer-line"><strong>{{ $booking->vehicle?->registration_number ?? 'Uten bil' }}</strong><span>{{ $booking->customer->name }}</span></div><span>{{ $booking->service_name }}</span></div>
                 <div><strong>{{ $booking->assignedUser?->name ?? 'Ikke tildelt' }}</strong><span>{{ $booking->workBay?->code ?? 'Bukk tildeles senere' }}</span></div>

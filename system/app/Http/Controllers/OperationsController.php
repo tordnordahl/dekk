@@ -35,14 +35,42 @@ class OperationsController extends Controller
     public function dashboard(Request $request): View
     {
         $org = $request->user()->organization_id;
+        $branch = $request->user()->branch_id;
         $storedCount = TireSet::where('organization_id', $org)->where('status', 'stored')->count();
+        $capacityBookings = Booking::where('organization_id', $org)->where('branch_id', $branch)
+            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->where('starts_at', '>=', today())->where('starts_at', '<', today()->addDays(7))
+            ->get(['id', 'starts_at', 'ends_at']);
+        $settings = ServiceSetting::where('organization_id', $org)->where('branch_id', $branch)->first();
+        $hours = $settings?->weekly_hours ?? [1=>['08:00','16:00'],2=>['08:00','16:00'],3=>['08:00','16:00'],4=>['08:00','16:00'],5=>['08:00','16:00']];
+        $bayCount = WorkBay::where('branch_id', $branch)->where('active', true)->count();
+        $technicianCount = User::where('organization_id', $org)->where('branch_id', $branch)->where('active', true)->where('role', 'technician')->count();
+        $parallelCapacity = $bayCount > 0 && $technicianCount > 0 ? min($bayCount, $technicianCount) : max(1, $bayCount, $technicianCount);
+        $occupancy = collect(range(0, 6))->map(function (int $offset) use ($capacityBookings, $hours, $parallelCapacity) {
+            $day = today()->addDays($offset);
+            $dayHours = $hours[$day->dayOfWeek] ?? null;
+            $openMinutes = $dayHours && count($dayHours) >= 2
+                ? max(0, $day->copy()->setTimeFromTimeString($dayHours[0])->diffInMinutes($day->copy()->setTimeFromTimeString($dayHours[1]), false))
+                : 0;
+            $dayBookings = $capacityBookings->filter(fn ($booking) => $booking->starts_at->isSameDay($day));
+            $bookedMinutes = (int) $dayBookings->sum(fn ($booking) => max(0, $booking->starts_at->diffInMinutes($booking->ends_at, false)));
+            $availableMinutes = $openMinutes * $parallelCapacity;
+            return [
+                'date' => $day->toDateString(),
+                'label' => $offset === 0 ? 'I dag' : ($offset === 1 ? 'I morgen' : ucfirst($day->translatedFormat('D'))),
+                'short_date' => $day->format('d.m'),
+                'bookings' => $dayBookings->count(),
+                'percent' => $availableMinutes > 0 ? (int) round(($bookedMinutes / $availableMinutes) * 100) : null,
+                'closed' => $availableMinutes === 0,
+            ];
+        });
         return view('dashboard', [
             'customerCount' => Customer::where('organization_id', $org)->count(),
             'storedCount' => $storedCount,
             'todayCount' => Booking::where('organization_id',$org)->whereDate('starts_at',today())->count(),
             'warningCount' => TireSet::where('organization_id', $org)->where(fn ($q) => $q->where('minimum_tread_depth', '<', 3)->orWhere('dot_year', '<', now()->year - 8))->count(),
-            'bookings' => Booking::with(['customer', 'vehicle'])->where('organization_id', $org)->whereDate('starts_at', today())->orderBy('starts_at')->get(),
-            'recentCustomers' => Customer::where('organization_id', $org)->latest()->limit(6)->get(),
+            'bookings' => Booking::with(['customer', 'vehicle', 'workOrder'])->where('organization_id', $org)->whereDate('starts_at', today())->orderBy('starts_at')->get(),
+            'occupancy' => $occupancy,
         ]);
     }
 

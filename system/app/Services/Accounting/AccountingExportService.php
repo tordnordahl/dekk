@@ -40,7 +40,8 @@ class AccountingExportService
         $reactivated = $invoice->status === 'cancelled';
         if ($reactivated) $invoice->update([...$attributes, 'public_id'=>$invoice->public_id, 'status'=>'ready', 'provider'=>null, 'queued_at'=>null, 'failed_at'=>null, 'last_error'=>null]);
 
-        $zettleCheckout = IntegrationSetting::where('organization_id',$booking->organization_id)->where('provider','sales_zettle')->where('active',true)->exists();
+        $zettlePilotEnabled = (bool) (app(AccountingPlatformSettings::class)->zettle()['pilot_enabled'] ?? false);
+        $zettleCheckout = $zettlePilotEnabled && IntegrationSetting::where('organization_id',$booking->organization_id)->where('provider','sales_zettle')->where('active',true)->exists();
         if ($zettleCheckout && Schema::hasTable('checkout_payments')) {
             CheckoutPayment::firstOrCreate(['booking_id'=>$booking->id,'invoice_export_id'=>$invoice->id],['public_id'=>(string)Str::uuid(),'organization_id'=>$booking->organization_id,'amount_cents'=>$invoice->total_cents,'terminal_reference'=>'DP-'.Str::upper(Str::random(18)),'lookup_token_hash'=>hash('sha256',Str::random(64)),'expires_at'=>now()->addHours(24)]);
         }

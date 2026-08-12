@@ -37,6 +37,7 @@ class AccountingController extends Controller
             'tripletexTestConfigured' => filled($tripletexPlatform['test_consumer_token'] ?? null),
             'powerofficePlatform'=>$superadmin?$powerofficePlatform:[], 'powerofficeConfigured'=>filled($powerofficePlatform['app_key']??null)&&filled($powerofficePlatform['subscription_key']??null),
             'zettlePlatform'=>$superadmin?$zettlePlatform:[], 'zettleConnection'=>$zettleConnection, 'zettleConfigured'=>app(ZettleOAuthService::class)->configured(),
+            'zettlePilotEnabled'=>(bool)($zettlePlatform['pilot_enabled']??false),
         ]);
     }
 
@@ -97,14 +98,15 @@ class AccountingController extends Controller
 
     public function saveZettlePlatform(Request $request, AccountingPlatformSettings $platform): RedirectResponse
     {
-        $data=$request->validate(['client_id'=>['required','string','max:500'],'client_secret'=>['nullable','string','max:2000']]);$old=$platform->zettle();
+        $data=$request->validate(['client_id'=>['required','string','max:500'],'client_secret'=>['nullable','string','max:2000'],'pilot_enabled'=>['nullable','boolean']]);$old=$platform->zettle();
         if(blank($data['client_secret'])&&blank($old['client_secret']??null))return back()->withErrors(['accounting'=>'Zettle Client Secret må fylles ut første gang.']);
-        $platform->save('sales.zettle.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>$data['client_secret']?:$old['client_secret']],$request->user()->id);
-        return back()->with('success','Zettle-plattformoppsettet er lagret kryptert.');
+        $platform->save('sales.zettle.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>$data['client_secret']?:$old['client_secret'],'pilot_enabled'=>$request->boolean('pilot_enabled')],$request->user()->id);
+        return back()->with('success','Zettle-plattformoppsettet er lagret kryptert. Pilotstatus er '.($request->boolean('pilot_enabled')?'aktiv':'av').'.');
     }
 
     public function connectZettle(Request $request, ZettleOAuthService $oauth): RedirectResponse
     {
+        if(!(bool)(app(AccountingPlatformSettings::class)->zettle()['pilot_enabled']??false))return back()->withErrors(['accounting'=>'Zettle-piloten er slått av av superadmin.']);
         if(!$oauth->configured())return back()->withErrors(['accounting'=>'Superadmin må konfigurere Zettle Client ID og Client Secret først.']);
         $state=Str::random(64);$request->session()->put('zettle_oauth_state',$state);
         return redirect()->away('https://oauth.zettle.com/authorize?'.http_build_query(['response_type'=>'code','scope'=>'READ:PURCHASE READ:FINANCE','client_id'=>$oauth->clientId(),'redirect_uri'=>route('admin.accounting.zettle.callback'),'state'=>$state]));

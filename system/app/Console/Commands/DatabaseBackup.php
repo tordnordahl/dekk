@@ -46,6 +46,14 @@ class DatabaseBackup extends Command
         if (!$input || !$output) throw new RuntimeException('Komprimering av backup feilet.');
         while (!feof($input)) gzwrite($output, fread($input, 1024 * 1024));
         fclose($input); gzclose($output); unlink($sql); chmod($gz, 0600);
+        $mirror=trim((string)env('BACKUP_MIRROR_PATH',''));
+        if($mirror!==''){
+            if(!str_starts_with($mirror,DIRECTORY_SEPARATOR)){$this->error('BACKUP_MIRROR_PATH må være en absolutt sti.');return self::FAILURE;}
+            if(!is_dir($mirror)&&!mkdir($mirror,0700,true)&&!is_dir($mirror)){$this->error('Kunne ikke opprette speilmappe for backup.');return self::FAILURE;}
+            $target=rtrim($mirror,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.basename($gz);
+            if(!copy($gz,$target)||hash_file('sha256',$gz)!==hash_file('sha256',$target)){$this->error('Backup ble laget lokalt, men verifisert speilkopi feilet.');return self::FAILURE;}
+            chmod($target,0600);
+        }
         $cutoff = now()->subDays(max(1, (int) $this->option('retention')))->getTimestamp();
         foreach (glob($directory.'/dekkpilot-*.sql.gz') ?: [] as $file) if (filemtime($file) < $cutoff) unlink($file);
         $this->info(basename($gz).' · '.number_format(filesize($gz)).' bytes · SHA256 '.hash_file('sha256', $gz));

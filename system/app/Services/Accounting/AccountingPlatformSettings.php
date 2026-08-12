@@ -38,6 +38,7 @@ class AccountingPlatformSettings
         return array_merge([
             'client_id' => config('services.zettle.client_id'),
             'client_secret' => config('services.zettle.client_secret'),
+            'pilot_enabled' => false,
         ], $this->read('sales.zettle.oauth'));
     }
 
