@@ -17,13 +17,16 @@ class GitDeploymentService
             $url=trim($this->run(['remote','get-url',$this->remote]));if(!preg_match('~^(?:https://github\.com/|git@github\.com:)~i',$url))throw new RuntimeException('Av sikkerhetsgrunner tillates bare GitHub som remote.');
             $localLines=array_values(array_filter(explode("\n",trim($this->run(['status','--porcelain','--untracked-files=no'])))));
             $localFiles=array_values(array_filter(array_map(fn($line)=>trim(substr($line,3)),$localLines)));
-            $dirty=$localFiles!==[];
+            $dirtyFiles=array_values(array_filter($localFiles,fn($file)=>!$this->protected($file)));
+            $dirty=$dirtyFiles!==[];
             if($fetch)$this->run(['-c','core.hooksPath=/dev/null','fetch','--prune',$this->remote,$branch],120);
             $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;$remoteExists=$this->ok(['show-ref','--verify','--quiet',$remoteRef]);
             $ahead=$behind=0;$files=[];
             if($remoteExists){$counts=preg_split('/\s+/',trim($this->run(['rev-list','--left-right','--count','HEAD...'.$remoteRef])));$ahead=(int)($counts[0]??0);$behind=(int)($counts[1]??0);if($behind>0)$files=array_values(array_filter(explode("\n",trim($this->run(['diff','--name-only','HEAD..'.$remoteRef])))));}
             $candidates=array_values(array_unique(array_merge($files,$localFiles)));$ignored=array_values(array_filter($candidates,fn($f)=>$this->protected($f)));$selectable=array_values(array_filter($candidates,fn($f)=>!$this->protected($f)));
-            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'vendor_required'=>in_array('system/composer.lock',$candidates,true)||in_array('composer.lock',$candidates,true),'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD']))];
+            $lockPath=in_array('system/composer.lock',$candidates,true)?'system/composer.lock':(in_array('composer.lock',$candidates,true)?'composer.lock':null);
+            $vendor=$lockPath&&$remoteExists?$this->verifyVendor($remoteRef,$lockPath):['required'=>false,'ready'=>true,'message'=>null];
+            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD']))];
         }catch(\Throwable $e){return['available'=>false,'error'=>$e->getMessage(),'path'=>$this->path];}
     }
     public function initialize(string $repositoryUrl,string $branch):array
@@ -92,6 +95,20 @@ class GitDeploymentService
     private function run(array $args,int $timeout=30):string{$p=new Process([$this->git,...$args],$this->path,null,null,$timeout);$p->run();if(!$p->isSuccessful()){$error=trim($p->getErrorOutput()?:$p->getOutput())?:'Git-kommandoen feilet.';$error=preg_replace('~https://[^\s/@]+@~','https://***@',$error);throw new RuntimeException(mb_substr($error,0,700));}return$p->getOutput();}
     private function ok(array $args):bool{$p=new Process([$this->git,...$args],$this->path,null,null,10);$p->run();return$p->isSuccessful();}
     private function maskUrl(string $url):string{return preg_replace('~(https://)[^/@]+@~','$1***@',$url);}
+    private function verifyVendor(string $remoteRef,string $lockPath):array
+    {
+        $localLock=$this->path.'/'.$lockPath;$vendorDir=dirname($localLock).'/vendor';$installedPath=$vendorDir.'/composer/installed.json';
+        if(!is_file($localLock))return['required'=>true,'ready'=>false,'message'=>'composer.lock mangler på serveren.'];
+        try{$remoteLock=$this->run(['show',$remoteRef.':'.$lockPath]);}catch(\Throwable){return['required'=>true,'ready'=>false,'message'=>'Kunne ikke lese composer.lock fra GitHub.'];}
+        $localContents=file_get_contents($localLock);
+        if(!is_string($localContents)||!hash_equals(hash('sha256',$remoteLock),hash('sha256',$localContents)))return['required'=>true,'ready'=>false,'message'=>'Serverens composer.lock er ikke samme versjon som oppdateringen på GitHub.'];
+        if(!is_file($vendorDir.'/autoload.php')||!is_file($installedPath))return['required'=>true,'ready'=>false,'message'=>'composer.lock er riktig, men vendor er ikke komplett.'];
+        try{$lock=json_decode($localContents,true,512,JSON_THROW_ON_ERROR);$installed=json_decode((string)file_get_contents($installedPath),true,512,JSON_THROW_ON_ERROR);}catch(\Throwable){return['required'=>true,'ready'=>false,'message'=>'Composer-metadata kunne ikke leses. Last opp vendor på nytt.'];}
+        $installedPackages=$installed['packages']??$installed[0]['packages']??[];$versions=[];foreach($installedPackages as$package)if(isset($package['name'],$package['version']))$versions[$package['name']]=$package['version'];
+        $missing=[];foreach(($lock['packages']??[])as$package){$name=$package['name']??null;$version=$package['version']??null;if(!$name||!$version||($versions[$name]??null)!==$version)$missing[]=$name?:'ukjent pakke';}
+        if($missing)return['required'=>true,'ready'=>false,'message'=>'Vendor mangler eller har feil versjon av: '.implode(', ',array_slice($missing,0,6)).(count($missing)>6?' m.fl.':'').'.'];
+        return['required'=>false,'ready'=>true,'message'=>'Manuelt opplastet composer.lock og vendor samsvarer med GitHub.'];
+    }
     private function protected(string $path):bool
     {
         $path=ltrim(str_replace('\\','/',$path),'/');
