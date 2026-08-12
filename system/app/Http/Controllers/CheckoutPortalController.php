@@ -10,6 +10,7 @@ use App\Models\Organization;
 use App\Models\Vehicle;
 use App\Services\Accounting\AccountingPlatformSettings;
 use App\Services\CheckoutPaymentService;
+use App\Services\ReceiptService;
 use App\Services\Accounting\AccountingExportService;
 use App\Services\VippsPaymentService;
 use Illuminate\Http\JsonResponse;
@@ -131,20 +132,18 @@ class CheckoutPortalController extends Controller
         return response()->json(['status' => $payment->status, 'provider_status' => $payment->provider_status, 'paid_at' => $payment->paid_at?->toIso8601String()]);
     }
 
-    public function receipt(CheckoutPayment $payment, string $token): View
+    public function receipt(CheckoutPayment $payment, string $token, ReceiptService $receipts): View
     {
         $this->validToken($payment, $token);
         abort_unless($payment->status === 'paid', 404);
-        $payment->load(['booking.customer', 'booking.vehicle', 'invoiceExport']);
-        return view('checkout.receipt', compact('payment'));
+        return view('checkout.receipt', ['payment'=>$payment, 'receipt'=>$receipts->data($payment)]);
     }
 
-    public function staffReceipt(Request $request, CheckoutPayment $payment): View
+    public function staffReceipt(Request $request, CheckoutPayment $payment, ReceiptService $receipts): View
     {
         abort_unless($payment->organization_id === $request->user()->organization_id, 404);
         abort_unless($payment->status === 'paid', 404);
-        $payment->load(['booking.customer.organization', 'booking.vehicle', 'invoiceExport']);
-        return view('checkout.receipt', compact('payment'));
+        return view('checkout.receipt', ['payment'=>$payment, 'receipt'=>$receipts->data($payment)]);
     }
 
     public function resendReceipt(Request $request, CheckoutPayment $payment, CheckoutPaymentService $service): RedirectResponse

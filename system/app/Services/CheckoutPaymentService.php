@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 class CheckoutPaymentService
 {
+    public function __construct(private readonly ReceiptService $receipts) {}
+
     public function complete(CheckoutPayment $payment, string $method, string $providerReference, ?string $providerStatus = null, array $payload = []): CheckoutPayment
     {
         $payment = DB::transaction(function () use ($payment, $method, $providerReference, $providerStatus, $payload) {
@@ -34,18 +36,11 @@ class CheckoutPaymentService
         $customer = $payment->booking?->customer;
         $recipient = trim((string) $payment->receipt_recipient);
         if (! $customer || $recipient === '') return;
-        $method = match($payment->payment_method){'vipps'=>'Vipps','cash'=>'kontant',default=>'bankterminal'};
-        $amount = number_format($payment->amount_cents / 100, 2, ',', ' ');
-        $body = "Kvittering fra {$customer->organization?->name}\n"
-            ."Betalt: {$amount} {$payment->currency}\n"
-            ."Betalingsmåte: {$method}\n"
-            ."Referanse: {$payment->terminal_reference}\n"
-            ."Registreringsnummer: ".($payment->booking->vehicle?->registration_number ?? '—')."\n"
-            ."Tjeneste: {$payment->booking->service_name}\n"
-            ."Dato: ".optional($payment->paid_at)->format('d.m.Y H:i');
+        $receipt = $this->receipts->data($payment);
+        $body = $this->receipts->plainText($payment);
         app(CommunicationService::class)->queue(
             $payment->organization_id, $customer, $payment->receipt_channel, $recipient,
-            $payment->receipt_channel === 'email' ? 'Kvittering '.$payment->terminal_reference : null,
+            $payment->receipt_channel === 'email' ? 'Kvittering '.$receipt['number'] : null,
             $body, 'transactional', $payment->booking_id
         );
         $payment->update(['receipt_sent_at' => now()]);

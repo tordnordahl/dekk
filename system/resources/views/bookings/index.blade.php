@@ -28,7 +28,7 @@
         @endif
     </form>
     <div class="booking-toolbar-actions">
-        <div><span class="confirmation-key confirmed">● Godkjent</span><span class="confirmation-key waiting">● Venter</span><span class="confirmation-key overbooked">● Overbooket</span></div>
+        <div><span class="confirmation-key confirmed">● Bekreftet</span><span class="confirmation-key waiting">● Venter på svar</span><span class="confirmation-key overbooked">● Overbooket</span></div>
         @if($canCreate)<button type="button" class="booking-add-button" data-booking-open aria-label="Opprett ny booking" title="Opprett ny booking">+</button>@endif
     </div>
 </section>
@@ -81,8 +81,13 @@
                 <time>{{ $booking->is_drop_in?'Drop-in':$booking->starts_at->format('H:i') }}<small>{{ $booking->is_drop_in?'Uten fast tid':$booking->ends_at->format('H:i') }}</small></time>
                 <div class="booking-customer"><div class="booking-customer-line"><strong>{{ $booking->vehicle?->registration_number ?? 'Uten bil' }}</strong><span>{{ $booking->customer->name }}</span></div><span>{{ $booking->service_name }}</span></div>
                 <div><strong>{{ $booking->assignedUser?->name ?? 'Ikke tildelt' }}</strong><span>{{ $booking->workBay?->code ?? 'Bukk tildeles senere' }}</span></div>
-                @if($booking->capacity_overbooked)<span class="overbooked-badge">! Overbooket</span>@else<span class="confirmation-badge {{ $booking->confirmation_status==='confirmed'?'confirmed':'waiting' }}">{{ $booking->confirmation_status==='confirmed'?'Godkjent':'Venter' }}</span>@endif
-                <span class="status {{ $booking->status }}">{{ ['scheduled'=>'Venter','arrived'=>'Ankommet','in_progress'=>'Pågår','completed'=>'Fullført','cancelled'=>'Avbrutt','no_show'=>'Ikke møtt'][$booking->status] }}</span>
+                @if($booking->capacity_overbooked)
+                    <span class="overbooked-badge">! Overbooket</span>
+                @elseif($booking->status==='scheduled')
+                    <span class="confirmation-badge {{ $booking->confirmation_status==='confirmed'?'confirmed':'waiting' }}">{{ $booking->confirmation_status==='confirmed'?'Bekreftet':'Venter på svar' }}</span>
+                @else
+                    <span class="status {{ $booking->status }}">{{ ['arrived'=>'Ankommet','in_progress'=>'Pågår','completed'=>'Fullført','cancelled'=>'Avbrutt','no_show'=>'Ikke møtt'][$booking->status] ?? 'Planlagt' }}</span>
+                @endif
                 @if(!in_array($booking->status,['completed','cancelled','no_show'],true)&&in_array(auth()->user()->role,['owner','admin','manager'],true))
                     <button type="button" class="mini-action" data-complete-booking data-action="{{ route('bookings.complete',$booking) }}" data-registration="{{ $booking->vehicle?->registration_number }}" data-tire-sets='@json($booking->completion_tire_sets)'>✓ Fullfør</button>
                 @elseif($booking->status==='completed')<div class="booking-completed-actions">@if($booking->checkoutPayment?->status==='paid')<a class="mini-action" href="{{ route('bookings.receipt',$booking->checkoutPayment) }}" target="_blank" rel="noopener">▣ Kvittering</a>@if($booking->customer->email)<form method="post" action="{{ route('bookings.receipt.resend',$booking->checkoutPayment) }}">@csrf<button class="mini-action" title="Send til {{ $booking->customer->email }}">✉ Send igjen</button></form>@endif @endif @if(in_array(auth()->user()->role,['owner','admin','manager'],true))<form method="post" action="{{ route('bookings.reopen',$booking) }}">@csrf<button class="mini-action undo">↶ Angre</button></form>@endif</div>@endif

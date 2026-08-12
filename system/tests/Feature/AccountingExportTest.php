@@ -122,7 +122,9 @@ class AccountingExportTest extends TestCase
         $payment=CheckoutPayment::where('booking_id',$booking->id)->firstOrFail();
         $payment->update(['status'=>'paid','payment_method'=>'cash','provider_reference'=>'KONTANT-TEST','paid_at'=>now()]);
 
-        $this->actingAs($user)->get(route('bookings.receipt',$payment))->assertOk()->assertSee('KONTANT-TEST')->assertSee('Kontant');
+        $this->actingAs($user)->get(route('bookings.receipt',$payment))->assertOk()
+            ->assertSee('ELEKTRONISK SALGSKVITTERING')->assertSee('Org.nr.')
+            ->assertSee('KONTANT-TEST')->assertSee('Kontant')->assertSee('MVA 25 %');
         $this->actingAs($user)->post(route('bookings.receipt.resend',$payment))->assertRedirect()->assertSessionHas('success');
         $this->assertDatabaseHas('outbound_messages',['booking_id'=>$booking->id,'channel'=>'email','recipient'=>'ola@example.no','status'=>'queued']);
 
