@@ -68,7 +68,7 @@ class CheckoutPortalController extends Controller
         $this->validToken($payment, $token);
         $customer = $payment->booking()->with('customer')->first()?->customer;
         $data = $request->validate([
-            'payment_method' => ['required', 'in:terminal,vipps,cash,invoice'], 'receipt_channel' => ['nullable', 'in:email,sms,print,none'],
+            'payment_method' => ['required', 'in:terminal,vipps,cash,invoice'], 'receipt_channel' => ['nullable', 'in:email,sms,print'],
             'receipt_recipient' => ['nullable', 'string', 'max:255'],
         ]);
         if (in_array($data['payment_method'], ['cash','invoice'], true)) {
