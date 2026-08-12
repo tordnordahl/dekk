@@ -19,7 +19,7 @@ class GitDeploymentService
             $localFiles=array_values(array_filter(array_map(fn($line)=>trim(substr($line,3)),$localLines)));
             $dirtyFiles=array_values(array_filter($localFiles,fn($file)=>!$this->protected($file)));
             $dirty=$dirtyFiles!==[];
-            if($fetch)$this->run(['-c','core.hooksPath=/dev/null','fetch','--prune',$this->remote,$branch],120);
+            if($fetch)$this->fetchRemote($branch);
             $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;$remoteExists=$this->ok(['show-ref','--verify','--quiet',$remoteRef]);
             $ahead=$behind=0;$files=[];
             if($remoteExists){$counts=preg_split('/\s+/',trim($this->run(['rev-list','--left-right','--count','HEAD...'.$remoteRef])));$ahead=(int)($counts[0]??0);$behind=(int)($counts[1]??0);$files=$this->workingTreeDifferences($remoteRef);}
@@ -27,7 +27,10 @@ class GitDeploymentService
             $extraFiles=[];if($deep){$untracked=array_values(array_filter(explode("\n",trim($this->run(['ls-files','--others','--exclude-standard'])))));$extraFiles=array_values(array_filter($untracked,fn($file)=>!$this->protected($file)));}
             $lockPath=in_array('system/composer.lock',$candidates,true)?'system/composer.lock':(in_array('composer.lock',$candidates,true)?'composer.lock':null);
             $vendor=$lockPath&&$remoteExists?$this->verifyVendor($remoteRef,$lockPath):['required'=>false,'ready'=>true,'message'=>null];
-            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'extra_files'=>$extraFiles,'deep_checked'=>$deep,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD']))];
+            $remoteHead=$remoteExists?trim($this->run(['rev-parse','--short',$remoteRef])):null;
+            $remoteDate=$remoteExists?trim($this->run(['show','-s','--format=%cI',$remoteRef])):null;
+            $remoteFiles=$remoteExists?count(array_filter(explode("\n",trim($this->run(['ls-tree','-r','--name-only',$remoteRef]))))):0;
+            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'extra_files'=>$extraFiles,'deep_checked'=>$deep,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD'])),'remote_head'=>$remoteHead,'remote_commit_at'=>$remoteDate,'remote_file_count'=>$remoteFiles];
         }catch(\Throwable $e){return['available'=>false,'error'=>$e->getMessage(),'path'=>$this->path];}
     }
     public function initialize(string $repositoryUrl,string $branch):array
@@ -45,7 +48,7 @@ class GitDeploymentService
             $this->run(['symbolic-ref','HEAD','refs/heads/'.$branch],15);
             if($this->ok(['remote','get-url',$this->remote]))$this->run(['remote','set-url',$this->remote,$repositoryUrl],15);
             else $this->run(['remote','add',$this->remote,$repositoryUrl],15);
-            $this->run(['-c','core.hooksPath=/dev/null','fetch','--prune',$this->remote,$branch],120);
+            $this->fetchRemote($branch);
             $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;
             if(!$this->ok(['show-ref','--verify','--quiet',$remoteRef]))throw new RuntimeException('Fant ikke grenen '.$branch.' på GitHub.');
             // Knytter Git-indeksen til GitHub-versjonen uten å skrive én eneste
@@ -95,6 +98,11 @@ class GitDeploymentService
     }
     private function run(array $args,int $timeout=30):string{$p=new Process([$this->git,...$args],$this->path,null,null,$timeout);$p->run();if(!$p->isSuccessful()){$error=trim($p->getErrorOutput()?:$p->getOutput())?:'Git-kommandoen feilet.';$error=preg_replace('~https://[^\s/@]+@~','https://***@',$error);throw new RuntimeException(mb_substr($error,0,700));}return$p->getOutput();}
     private function ok(array $args):bool{$p=new Process([$this->git,...$args],$this->path,null,null,10);$p->run();return$p->isSuccessful();}
+    private function fetchRemote(string $branch):void
+    {
+        $ref='+refs/heads/'.$branch.':refs/remotes/'.$this->remote.'/'.$branch;
+        $this->run(['-c','core.hooksPath=/dev/null','fetch','--force','--prune','--no-tags',$this->remote,$ref],180);
+    }
     private function workingTreeDifferences(string $remoteRef):array
     {
         $remote=[];foreach(array_filter(explode("\n",trim($this->run(['ls-tree','-r',$remoteRef]))))as$line){if(!preg_match('/^[0-9]+\s+blob\s+([a-f0-9]+)\t(.+)$/',$line,$match))continue;$file=str_replace('\\','/',$match[2]);if(!$this->protected($file))$remote[$file]=$match[1];}
