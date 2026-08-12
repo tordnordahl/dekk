@@ -87,7 +87,7 @@ class ActionCenterController extends Controller
             $item=OutboundMessage::where('organization_id',$org)->where('status','failed')->findOrFail($id);$item->update(['status'=>'queued','attempts'=>0,'scheduled_at'=>now(),'failed_at'=>null,'last_error'=>null]);$message='Meldingen er lagt tilbake i utsendingskøen.';
         }elseif($kind==='agreement'){
             abort_unless(in_array($request->user()->role,['owner','admin','manager'],true),403);abort_unless($data['decision']==='renew',422);
-            $item=HotelAgreement::where('organization_id',$org)->where('status','active')->findOrFail($id);$item->update(['renews_on'=>($item->renews_on??today())->addYear(),'billed_at'=>null]);$message='Hotellavtalen er fornyet med ett år.';
+            $item=HotelAgreement::where('organization_id',$org)->where('status','active')->findOrFail($id);$item->update(['renews_on'=>($item->renews_on??today())->addMonthsNoOverflow(6),'billed_at'=>null]);$message='Hotellavtalen er fornyet med seks måneder.';
         }elseif($kind==='count'){
             abort_unless($data['decision']==='count',422);$item=TireSet::where('organization_id',$org)->findOrFail($id);$item->update(['last_counted_at'=>now(),'last_counted_by'=>$request->user()->id]);$message=$item->code.' er kontrolltelt.';
         }else abort(404);

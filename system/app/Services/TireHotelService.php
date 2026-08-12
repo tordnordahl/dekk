@@ -54,7 +54,7 @@ class TireHotelService
             'tire_set_id' => null,
             'status' => 'active',
             'starts_on' => today(),
-            'renews_on' => today()->addYear(),
+            'renews_on' => today()->addMonthsNoOverflow(6),
             'price_cents' => $price,
             'auto_renew' => true,
             'notes' => 'Automatisk opprettet da hjulsett ble tatt inn på dekkhotell.',
