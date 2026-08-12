@@ -136,6 +136,26 @@ class CheckoutPortalController extends Controller
         return view('checkout.receipt', compact('payment'));
     }
 
+    public function staffReceipt(Request $request, CheckoutPayment $payment): View
+    {
+        abort_unless($payment->organization_id === $request->user()->organization_id, 404);
+        abort_unless($payment->status === 'paid', 404);
+        $payment->load(['booking.customer.organization', 'booking.vehicle', 'invoiceExport']);
+        return view('checkout.receipt', compact('payment'));
+    }
+
+    public function resendReceipt(Request $request, CheckoutPayment $payment, CheckoutPaymentService $service): RedirectResponse
+    {
+        abort_unless($payment->organization_id === $request->user()->organization_id, 404);
+        abort_unless($payment->status === 'paid', 404);
+        $payment->load(['booking.customer.organization', 'booking.vehicle', 'invoiceExport']);
+        $email = trim((string) ($payment->booking?->customer?->email));
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) return back()->withErrors(['receipt'=>'Kunden mangler en gyldig e-postadresse. Oppdater kundekortet først.']);
+        $payment->update(['receipt_channel'=>'email','receipt_recipient'=>$email,'receipt_sent_at'=>null]);
+        $service->sendReceipt($payment->fresh(['booking.customer.organization','booking.vehicle','invoiceExport']));
+        return back()->with('success','Kvitteringen er lagt i e-postkøen på nytt til '.$email.'.');
+    }
+
     public function complete(Request $request, CheckoutPayment $payment, CheckoutPaymentService $service): RedirectResponse
     {
         $data = $request->validate(['provider_reference' => ['required', 'string', 'max:255']]);

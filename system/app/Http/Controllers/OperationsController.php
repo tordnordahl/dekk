@@ -416,7 +416,7 @@ class OperationsController extends Controller
     {
         $org = $request->user()->organization_id;
         $settings = ServiceSetting::where('branch_id', $request->user()->branch_id)->first();
-        $bookingQuery = Booking::with(['customer', 'vehicle.tireSets', 'assignedUser', 'workBay'])->where('organization_id', $org);
+        $bookingQuery = Booking::with(['customer', 'vehicle.tireSets', 'assignedUser', 'workBay', 'checkoutPayment'])->where('organization_id', $org);
         if ($request->query('date') === 'today') $bookingQuery->whereDate('starts_at', today());
         elseif (!$request->filled('from')) $bookingQuery->where('starts_at', '>=', today())->where('starts_at', '<', today()->addDays(61));
         if ($request->filled('from')) $bookingQuery->whereDate('starts_at','>=',$request->date('from'));

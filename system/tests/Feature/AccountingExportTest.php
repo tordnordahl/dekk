@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Branch;
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\CheckoutPayment;
 use App\Models\IntegrationSetting;
 use App\Models\Organization;
 use App\Models\User;
@@ -111,5 +112,20 @@ class AccountingExportTest extends TestCase
         $this->actingAs($user)->post(route('bookings.reopen',$booking))->assertRedirect()->assertSessionHas('warning');
         $this->assertDatabaseHas('bookings',['id'=>$booking->id,'status'=>'scheduled']);
         $this->assertDatabaseHas('invoice_exports',['id'=>$invoice->id,'status'=>'exported']);
+    }
+
+    public function test_paid_receipt_can_be_printed_and_resent_from_an_old_booking(): void
+    {
+        ['user'=>$user,'booking'=>$booking]=$this->setupBooking();
+        $this->actingAs($user)->post(route('bookings.complete',$booking))->assertRedirect();
+        $payment=CheckoutPayment::where('booking_id',$booking->id)->firstOrFail();
+        $payment->update(['status'=>'paid','payment_method'=>'cash','provider_reference'=>'KONTANT-TEST','paid_at'=>now()]);
+
+        $this->actingAs($user)->get(route('bookings.receipt',$payment))->assertOk()->assertSee('KONTANT-TEST')->assertSee('Kontant');
+        $this->actingAs($user)->post(route('bookings.receipt.resend',$payment))->assertRedirect()->assertSessionHas('success');
+        $this->assertDatabaseHas('outbound_messages',['booking_id'=>$booking->id,'channel'=>'email','recipient'=>'ola@example.no','status'=>'queued']);
+
+        ['user'=>$other]=$this->setupBooking();
+        $this->actingAs($other)->get(route('bookings.receipt',$payment))->assertNotFound();
     }
 }

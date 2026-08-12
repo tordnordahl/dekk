@@ -16,5 +16,6 @@ class Booking extends Model
     public function assignedUser(): BelongsTo { return $this->belongsTo(User::class, 'assigned_user_id'); }
     public function workBay(): BelongsTo { return $this->belongsTo(WorkBay::class); }
     public function workOrder(): HasOne { return $this->hasOne(WorkOrder::class); }
+    public function checkoutPayment(): HasOne { return $this->hasOne(CheckoutPayment::class); }
     public function services(): BelongsToMany { return $this->belongsToMany(ServiceProduct::class, 'booking_service_product')->withPivot(['service_name','price_cents','duration_minutes','position'])->orderByPivot('position')->withTimestamps(); }
 }

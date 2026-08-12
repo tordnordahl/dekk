@@ -134,6 +134,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::post('/bookinger/{booking}/fullfor', [OperationsController::class, 'completeBooking'])->name('bookings.complete');
     Route::post('/bookinger/{booking}/angre-fullfort', [OperationsController::class, 'reopenBooking'])->name('bookings.reopen');
     Route::post('/utsjekk/betaling/{payment:public_id}/bekreft',[CheckoutPortalController::class,'complete'])->middleware('throttle:30,1')->name('checkout.complete');
+    Route::get('/bookinger/kvittering/{payment:public_id}',[CheckoutPortalController::class,'staffReceipt'])->name('bookings.receipt');
+    Route::post('/bookinger/kvittering/{payment:public_id}/send-pa-nytt',[CheckoutPortalController::class,'resendReceipt'])->middleware('throttle:10,1')->name('bookings.receipt.resend');
     Route::get('/tilbud', [QuoteController::class, 'index'])->name('quotes');
     Route::get('/tilbud/forslag/{tireSet}', [QuoteController::class, 'suggestion'])->name('quotes.suggestion');
     Route::post('/tilbud/forslag/{tireSet}/forhandsvis', [QuoteController::class, 'previewSuggestion'])->name('quotes.suggestion.preview');

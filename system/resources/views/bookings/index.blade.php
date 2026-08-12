@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ asset('booking-overview.css') }}?v=20260812-2">
 <link rel="stylesheet" href="{{ asset('booking-identity.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-completion.css') }}?v=20260811-2">
+<link rel="stylesheet" href="{{ asset('booking-receipts.css') }}?v=20260812-1">
 @php
     $canCreate = in_array(auth()->user()->role, ['owner', 'admin', 'manager', 'customer_service'], true);
 @endphp
@@ -23,7 +24,7 @@
         <label>Fra<input type="date" name="from" value="{{ request('from',today()->toDateString()) }}"></label>
         <label>Til<input type="date" name="to" value="{{ request('to',today()->addDays(30)->toDateString()) }}"></label>
         <label>Status<select name="status"><option value="">Alle</option><option value="scheduled" @selected(request('status')==='scheduled')>Planlagt</option><option value="in_progress" @selected(request('status')==='in_progress')>Pågår</option><option value="completed" @selected(request('status')==='completed')>Fullført</option></select></label>
-        <button class="button">Vis periode</button><a href="{{ route('bookings',['date'=>'today']) }}">I dag</a>
+        <button class="button">Vis periode</button><a href="{{ route('bookings',['date'=>'today']) }}">I dag</a><a href="{{ route('bookings',['from'=>today()->subYear()->toDateString(),'to'=>today()->toDateString(),'status'=>'completed']) }}">Tidligere timer</a>
         @endif
     </form>
     <div class="booking-toolbar-actions">
@@ -84,7 +85,7 @@
                 <span class="status {{ $booking->status }}">{{ ['scheduled'=>'Venter','arrived'=>'Ankommet','in_progress'=>'Pågår','completed'=>'Fullført','cancelled'=>'Avbrutt','no_show'=>'Ikke møtt'][$booking->status] }}</span>
                 @if(!in_array($booking->status,['completed','cancelled','no_show'],true)&&in_array(auth()->user()->role,['owner','admin','manager'],true))
                     <button type="button" class="mini-action" data-complete-booking data-action="{{ route('bookings.complete',$booking) }}" data-registration="{{ $booking->vehicle?->registration_number }}" data-tire-sets='@json($booking->completion_tire_sets)'>✓ Fullfør</button>
-                @elseif($booking->status==='completed'&&in_array(auth()->user()->role,['owner','admin','manager'],true))<form method="post" action="{{ route('bookings.reopen',$booking) }}">@csrf<button class="mini-action undo">↶ Angre fullført</button></form>@endif
+                @elseif($booking->status==='completed')<div class="booking-completed-actions">@if($booking->checkoutPayment?->status==='paid')<a class="mini-action" href="{{ route('bookings.receipt',$booking->checkoutPayment) }}" target="_blank" rel="noopener">▣ Kvittering</a>@if($booking->customer->email)<form method="post" action="{{ route('bookings.receipt.resend',$booking->checkoutPayment) }}">@csrf<button class="mini-action" title="Send til {{ $booking->customer->email }}">✉ Send igjen</button></form>@endif @endif @if(in_array(auth()->user()->role,['owner','admin','manager'],true))<form method="post" action="{{ route('bookings.reopen',$booking) }}">@csrf<button class="mini-action undo">↶ Angre</button></form>@endif</div>@endif
             </div>
         @empty<div class="empty-state"><strong>Ingen bookinger i perioden</strong><span>Velg en større periode eller opprett en ny time.</span></div>@endforelse
         </div>
