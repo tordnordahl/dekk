@@ -23,7 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('bookings:confirmations')->hourly()->withoutOverlapping();
         $schedule->command('communications:process')->everyMinute()->withoutOverlapping();
         $schedule->command('accounting:process')->everyMinute()->withoutOverlapping();
-        $schedule->command('checkout:invoice-expired')->everyFiveMinutes()->withoutOverlapping();
+        // Dagens ubetalte jobber faktureres samlet etter stengetid.
+        $schedule->command('checkout:invoice-expired')->dailyAt('23:55')->withoutOverlapping();
         $schedule->command('billing:prepare')->monthlyOn(1, '02:30')->withoutOverlapping();
         $schedule->command('backup:database')->dailyAt('03:15')->withoutOverlapping();
         $schedule->command('system:health')->everyFiveMinutes()->withoutOverlapping();

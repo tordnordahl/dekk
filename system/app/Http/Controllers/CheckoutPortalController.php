@@ -46,7 +46,7 @@ class CheckoutPortalController extends Controller
         $plain = Str::random(64);
         $payment = CheckoutPayment::firstOrCreate(['booking_id' => $booking->id, 'invoice_export_id' => $invoice->id], [
             'public_id' => (string) Str::uuid(), 'organization_id' => $organization->id, 'amount_cents' => $invoice->total_cents,
-            'terminal_reference' => 'DP-'.Str::upper(Str::random(18)), 'lookup_token_hash' => hash('sha256', $plain), 'expires_at' => now()->addHours(24),
+            'terminal_reference' => 'DP-'.Str::upper(Str::random(18)), 'lookup_token_hash' => hash('sha256', $plain), 'expires_at' => now()->endOfDay(),
         ]);
         if (! $payment->wasRecentlyCreated) {
             $plain = Str::random(64);
