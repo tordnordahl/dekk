@@ -50,9 +50,16 @@ class SystemSettingsController extends Controller
         return back()->with('success', 'Serverens e-postinnstillinger er lagret kryptert. Send en test før produksjonsbruk.');
     }
 
+    public function serverMail(MailConfigurationService $mail): View
+    {
+        return view('superadmin.server-mail', ['serverMail' => $mail->serverSettings()]);
+    }
+
     public function saveTenantMail(Request $request): RedirectResponse
     {
-        $data = $request->validate(['from_name'=>['required','string','max:255'],'from_address'=>['required','email','max:255'],'reply_to'=>['required','email','max:255']]);
+        $data = $request->validate(['from_address'=>['required','email','max:255']]);
+        $data['from_name'] = $request->user()->organization?->name ?: 'DekkPilot';
+        $data['reply_to'] = $data['from_address'];
         IntegrationSetting::updateOrCreate(['organization_id'=>$request->user()->organization_id,'provider'=>'email_sender'], ['encrypted_credentials'=>Crypt::encryptString(json_encode($data, JSON_THROW_ON_ERROR)),'active'=>true,'updated_by'=>$request->user()->id]);
         $this->audit($request, 'organization.mail_sender.updated', ['from_address'=>$data['from_address'],'reply_to'=>$data['reply_to']]);
         return back()->with('success', 'Virksomhetens avsender er lagret. Send en test for å kontrollere leveringen.');
