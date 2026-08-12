@@ -30,6 +30,7 @@ use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\CheckoutPortalController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SuperAdminOperationsController;
+use App\Http\Controllers\SuperAdminDummyDataController;
 
 // Lever nye CSS/JS-filer gjennom den vanlige frontcontrolleren. Enkelte delte
 // webhotell sender ikke /api/* videre til Laravel, men /index.php/* fungerer.
@@ -68,6 +69,7 @@ Route::middleware(['auth','superadmin'])->group(function(){Route::get('/superadm
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/git-oppdatering',[SuperAdminGitUpdateController::class,'show'])->name('superadmin.git-update');Route::post('/superadmin/git-oppdatering/koble-til',[SuperAdminGitUpdateController::class,'connect'])->middleware('throttle:5,1')->name('superadmin.git-update.connect');Route::post('/superadmin/git-oppdatering/kontroller',[SuperAdminGitUpdateController::class,'check'])->middleware('throttle:12,1')->name('superadmin.git-update.check');Route::post('/superadmin/git-oppdatering/hent',[SuperAdminGitUpdateController::class,'pull'])->middleware('throttle:10,1')->name('superadmin.git-update.pull');Route::post('/superadmin/git-oppdatering/synkroniser',[SuperAdminGitUpdateController::class,'synchronize'])->middleware('throttle:10,1')->name('superadmin.git-update.synchronize');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/epostserver',[SystemSettingsController::class,'serverMail'])->name('superadmin.server-mail');Route::put('/superadmin/epostserver',[SystemSettingsController::class,'saveServerMail'])->name('superadmin.server-mail.save');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/produksjonsdrift',[SuperAdminOperationsController::class,'show'])->name('superadmin.operations');Route::post('/superadmin/produksjonsdrift/cron',[SuperAdminOperationsController::class,'generate'])->middleware('throttle:3,10')->name('superadmin.operations.cron');});
+Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/dummydata',[SuperAdminDummyDataController::class,'index'])->name('superadmin.dummy');Route::post('/superadmin/dummydata',[SuperAdminDummyDataController::class,'generate'])->middleware('throttle:2,10')->name('superadmin.dummy.generate');Route::delete('/superadmin/dummydata',[SuperAdminDummyDataController::class,'delete'])->middleware('throttle:2,10')->name('superadmin.dummy.delete');});
 Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/superadmin/1881',[SystemSettingsController::class,'phoneDirectory'])->name('superadmin.phone-directory');Route::put('/superadmin/1881',[SystemSettingsController::class,'savePhoneDirectory'])->name('superadmin.phone-directory.save');});
 
 Route::middleware(['auth','2fa','superadmin'])->group(function(){
@@ -170,8 +172,6 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
         Route::post('/import', [DataImportController::class, 'upload'])->name('admin.imports.upload');
         Route::post('/import/{import}/utfor', [DataImportController::class, 'execute'])->name('admin.imports.execute');
         Route::get('/importmal', [DataImportController::class, 'template'])->name('admin.imports.template');
-        Route::post('/dummydata', [AdminController::class, 'generateDummyData'])->name('admin.dummy.generate');
-        Route::delete('/dummydata', [AdminController::class, 'deleteDummyData'])->name('admin.dummy.delete');
         Route::post('/ansatte', [ManagementController::class, 'employee'])->name('admin.employees.store');
         Route::put('/ansatte/{employee}', [ManagementController::class, 'updateEmployee'])->name('admin.employees.update');
         Route::patch('/ansatte/{employee}/status', [ManagementController::class, 'toggleEmployee'])->name('admin.employees.toggle');

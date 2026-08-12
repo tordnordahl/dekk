@@ -15,13 +15,15 @@ use Illuminate\Support\Str;
 
 class ScaleDemoInventory extends Command
 {
-    protected $signature = 'demo:scale-inventory {--sets=600}';
+    protected $signature = 'demo:scale-inventory {--sets=600} {--organization=}';
     protected $description = 'Fyll demovirksomheten med realistiske kunder, bilparker og hjulsett';
 
     public function handle(): int
     {
         $count = max(1, min(5000, (int) $this->option('sets')));
-        $org = Organization::firstOrCreate(['organization_number'=>'DEMO-DEKKPILOT'], ['public_id'=>(string)Str::uuid(),'name'=>'[DEMO] Nordisk Dekkhotell AS','email'=>'demo@dekkpilot.no','subscription_status'=>'active','billing_model'=>'invoice']);
+        $org = $this->option('organization')
+            ? Organization::findOrFail((int)$this->option('organization'))
+            : Organization::firstOrCreate(['organization_number'=>'DEMO-DEKKPILOT'], ['public_id'=>(string)Str::uuid(),'name'=>'[DEMO] Nordisk Dekkhotell AS','email'=>'demo@dekkpilot.no','subscription_status'=>'active','billing_model'=>'invoice']);
         $branch = Branch::firstOrCreate(['organization_id'=>$org->id,'code'=>'HOVED'], ['public_id'=>(string)Str::uuid(),'name'=>'Demoavdeling Oslo','active'=>true]);
         foreach(['MOTTAK','A-01','A-02','B-01','B-02','C-01','C-02','D-01'] as $index=>$code) StorageLocation::firstOrCreate(['branch_id'=>$branch->id,'code'=>$code],['public_id'=>(string)Str::uuid(),'organization_id'=>$org->id,'zone'=>$index===0?'Mottak':substr($code,0,1),'location_type'=>$index===0?'receiving':'rack','shelf_count'=>6,'sets_per_shelf'=>20,'map_x'=>($index%4)*23+3,'map_y'=>intdiv($index,4)*20+5,'map_width'=>18,'map_height'=>14,'pick_order'=>$index+1,'capacity'=>120,'active'=>true]);
         $locations = StorageLocation::where('organization_id', $org->id)->where('active', true)->where('code', '!=', 'MOTTAK')->get();
@@ -72,6 +74,7 @@ class ScaleDemoInventory extends Command
                     'customer_id'=>$customer->id, 'make'=>$make, 'model'=>$model, 'model_year'=>2017+($i%9),
                     'recommended_tire_size'=>$sizes[$i%count($sizes)], 'notes'=>'[DEMO-BULK] Syntetisk kjøretøy for belastningstest.', 'deleted_at'=>null,
                 ]);
+                \App\Models\VehicleOwnershipPeriod::firstOrCreate(['vehicle_id'=>$vehicle->id,'customer_id'=>$customer->id,'ended_at'=>null],['organization_id'=>$org->id,'started_at'=>$vehicle->created_at?:now()]);
                 $this->upsertWheelSet($org->id, $vehicle, $locations, $tireBrands, $sizes, $i, $i%2?'winter':'summer', 'DEMO-BULK-'.str_pad((string)$i,5,'0',STR_PAD_LEFT));
 
                 if ($i % 9 === 0) {
