@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class AccountingExportTest extends TestCase
@@ -127,5 +128,40 @@ class AccountingExportTest extends TestCase
 
         ['user'=>$other]=$this->setupBooking();
         $this->actingAs($other)->get(route('bookings.receipt',$payment))->assertNotFound();
+    }
+
+    public function test_terminal_can_only_be_completed_by_api_and_attempt_times_out_after_sixty_seconds(): void
+    {
+        ['user'=>$user,'booking'=>$booking]=$this->setupBooking();
+        $this->actingAs($user)->post(route('bookings.complete',$booking));
+        $payment=CheckoutPayment::where('booking_id',$booking->id)->firstOrFail();
+        $plain='terminal-test-token';$payment->update(['lookup_token_hash'=>hash('sha256',$plain)]);
+
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('checkout.complete'));
+        Carbon::setTestNow(now());
+        $this->actingAs($user)->post(route('checkout.start',[$payment,$plain]),['payment_method'=>'terminal','receipt_channel'=>'print'])->assertRedirect();
+        $payment->refresh();$this->assertSame('processing',$payment->status);
+        Carbon::setTestNow(now()->addSeconds(61));
+        $this->getJson(route('checkout.status',[$payment,$plain]))->assertOk()->assertJsonPath('status','failed')->assertJsonPath('provider_status','TIMED_OUT');
+        Carbon::setTestNow();
+    }
+
+    public function test_unimicro_connection_is_encrypted_tested_and_exports_invoice(): void
+    {
+        ['user'=>$user,'booking'=>$booking]=$this->setupBooking();
+        $token='uni-oauth-token';$companyKey=(string)Str::uuid();
+        $this->actingAs($user)->put(route('admin.accounting.save'),['provider'=>'unimicro','api_key'=>$token,'company_identifier'=>$companyKey,'api_base_url'=>'https://test.unimicro.no','environment'=>'test','payment_days'=>14,'income_account'=>'3000','distribution_plan_id'=>15,'payment_info_type_id'=>5])->assertRedirect()->assertSessionHasNoErrors();
+        $setting=IntegrationSetting::where('provider','accounting_unimicro')->firstOrFail();
+        $this->assertStringNotContainsString($token,$setting->encrypted_credentials);
+        Http::fake([
+            'test.unimicro.no/api/biz/companysettings'=>Http::response(['CompanyName'=>'Uni Test AS'],200),
+            'test.unimicro.no/api/biz/invoices'=>Http::response(['ID'=>987],201),
+        ]);
+        $this->actingAs($user)->post(route('admin.accounting.test'))->assertRedirect()->assertSessionHas('success');
+        $this->actingAs($user)->post(route('bookings.complete',$booking));
+        $invoice=\App\Models\InvoiceExport::where('booking_id',$booking->id)->firstOrFail();
+        $id=app(\App\Services\Accounting\UniMicroExporter::class)->export($invoice,json_decode(Crypt::decryptString($setting->encrypted_credentials),true));
+        $this->assertSame('987',$id);
+        Http::assertSent(fn($request)=>str_ends_with($request->url(),'/api/biz/invoices')&&$request->hasHeader('CompanyKey',$companyKey)&&$request['DistributionPlanID']===15&&$request['Items'][0]['VatPercent']===25.0);
     }
 }

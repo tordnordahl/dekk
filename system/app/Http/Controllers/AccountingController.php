@@ -22,7 +22,7 @@ class AccountingController extends Controller
     public function index(Request $request, AccountingPlatformSettings $platform): View
     {
         $org = $request->user()->organization_id;
-        $connection = IntegrationSetting::where('organization_id', $org)->whereIn('provider', ['accounting_fiken','accounting_tripletex','accounting_poweroffice'])->where('active', true)->first();
+        $connection = IntegrationSetting::where('organization_id', $org)->whereIn('provider', ['accounting_fiken','accounting_tripletex','accounting_poweroffice','accounting_unimicro'])->where('active', true)->first();
         $zettleConnection = IntegrationSetting::where('organization_id',$org)->where('provider','sales_zettle')->where('active',true)->first();
         $vippsConnection = IntegrationSetting::where('organization_id',$org)->where('provider','payment_vipps')->first();
         $terminalConnection = IntegrationSetting::where('organization_id',$org)->where('provider','payment_terminal')->first();
@@ -144,7 +144,7 @@ class AccountingController extends Controller
 
     public function save(Request $request): RedirectResponse
     {
-        $data = $request->validate(['provider'=>['required','in:fiken,tripletex,poweroffice'],'api_key'=>['nullable','string','max:2000'],'company_identifier'=>['required','string','max:255'],'auto_export'=>['nullable','boolean'],'environment'=>['nullable','in:production,test'],'payment_days'=>['required','integer','between:1,90'],'income_account'=>['nullable','string','regex:/^[3-8][0-9]{3}$/']]);
+        $data = $request->validate(['provider'=>['required','in:fiken,tripletex,poweroffice,unimicro'],'api_key'=>['nullable','string','max:4000'],'company_identifier'=>['required','string','max:255'],'auto_export'=>['nullable','boolean'],'environment'=>['nullable','in:production,test'],'api_base_url'=>['nullable','url','max:500'],'payment_days'=>['required','integer','between:1,90'],'income_account'=>['nullable','string','regex:/^[3-8][0-9]{3}$/'],'distribution_plan_id'=>['nullable','integer','min:1'],'payment_info_type_id'=>['nullable','integer','min:1']]);
         $org = $request->user()->organization_id;
         $provider = 'accounting_'.$data['provider'];
         $existing = IntegrationSetting::where('organization_id',$org)->where('provider',$provider)->first();
@@ -156,9 +156,10 @@ class AccountingController extends Controller
             if (($old['auth_mode'] ?? null) === 'oauth' && blank($data['api_key'])) $credentials += array_intersect_key($old, array_flip(['auth_mode','refresh_token','expires_at']));
         }
         elseif($data['provider']==='tripletex'){ $environment=$data['environment']??'production';$platform=app(AccountingPlatformSettings::class)->tripletex();$consumer=$environment==='test'?($platform['test_consumer_token']??null):($platform['consumer_token']??null);if(blank($consumer))return back()->withErrors(['accounting'=>'Superadmin må konfigurere Tripletex Consumer Token for valgt miljø først.']);$credentials['company_id']='0';$credentials['base_url']=$environment==='test'?'https://api-test.tripletex.tech/v2':'https://tripletex.no/v2';$credentials['auth_mode']='commercial'; }
-        else{$platform=app(AccountingPlatformSettings::class)->poweroffice();if(blank($platform['app_key']??null)||blank($platform['subscription_key']??null))return back()->withErrors(['accounting'=>'Superadmin må konfigurere PowerOffice-plattformnøklene først.']);$credentials['environment']=$data['environment']??'production';}
+        elseif($data['provider']==='poweroffice'){$platform=app(AccountingPlatformSettings::class)->poweroffice();if(blank($platform['app_key']??null)||blank($platform['subscription_key']??null))return back()->withErrors(['accounting'=>'Superadmin må konfigurere PowerOffice-plattformnøklene først.']);$credentials['environment']=$data['environment']??'production';}
+        else{$credentials['company_key']=$data['company_identifier'];$credentials['environment']=$data['environment']??'production';$credentials['api_base_url']=rtrim((string)($data['api_base_url']??'https://test.unimicro.no'),'/');$credentials['distribution_plan_id']=(int)($data['distribution_plan_id']??15);$credentials['payment_info_type_id']=(int)($data['payment_info_type_id']??5);}
         DB::transaction(function() use($org,$provider,$credentials,$request){
-            IntegrationSetting::where('organization_id',$org)->whereIn('provider',['accounting_fiken','accounting_tripletex','accounting_poweroffice'])->where('provider','!=',$provider)->update(['active'=>false]);
+            IntegrationSetting::where('organization_id',$org)->whereIn('provider',['accounting_fiken','accounting_tripletex','accounting_poweroffice','accounting_unimicro'])->where('provider','!=',$provider)->update(['active'=>false]);
             IntegrationSetting::updateOrCreate(['organization_id'=>$org,'provider'=>$provider],['encrypted_credentials'=>Crypt::encryptString(json_encode($credentials, JSON_THROW_ON_ERROR)),'active'=>true,'updated_by'=>$request->user()->id]);
             DB::table('audit_logs')->insert(['organization_id'=>$org,'user_id'=>$request->user()->id,'action'=>'accounting.connection.updated','metadata'=>json_encode(['provider'=>$provider]),'created_at'=>now()]);
         });

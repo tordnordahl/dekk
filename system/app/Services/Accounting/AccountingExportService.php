@@ -95,7 +95,7 @@ class AccountingExportService
 
     public function activeConnection(int $organizationId): ?IntegrationSetting
     {
-        return IntegrationSetting::where('organization_id', $organizationId)->whereIn('provider', ['accounting_fiken','accounting_tripletex','accounting_poweroffice'])->where('active', true)->first();
+        return IntegrationSetting::where('organization_id', $organizationId)->whereIn('provider', ['accounting_fiken','accounting_tripletex','accounting_poweroffice','accounting_unimicro'])->where('active', true)->first();
     }
 
     public function credentials(IntegrationSetting $setting): array
@@ -115,6 +115,7 @@ class AccountingExportService
             'fiken' => app(FikenExporter::class),
             'tripletex' => app(TripletexExporter::class),
             'poweroffice' => app(PowerOfficeExporter::class),
+            'unimicro' => app(UniMicroExporter::class),
             default => throw new RuntimeException('Ukjent regnskapsleverandør.'),
         };
     }
