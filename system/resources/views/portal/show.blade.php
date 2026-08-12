@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Min kundeportal · DekkPilot</title><link rel="stylesheet" href="{{ asset('app.css') }}"><link rel="stylesheet" href="{{ asset('portal.css') }}?v=20260810-2"></head>
-<body class="portal-page">
+<body class="portal-page {{ $adminPreview ? 'portal-preview' : '' }}">
 <header class="portal-header"><span class="brandmark">D</span><div><strong>{{ $customer->organization?->name ?? 'DekkPilot' }}</strong><small>Sikker kundeportal</small></div></header>
 <main class="portal-main">
+@if($adminPreview)<div class="portal-preview-banner"><div><strong>Forhåndsvisning som {{ $customer->name }}</strong><span>Denne visningen er skrivebeskyttet. Ingen bestillinger, tilbud eller timer kan endres.</span></div><a href="{{ route('admin.portals') }}">← Tilbake til portaler</a></div>@endif
 @if(session('success'))<div class="flash">✓ {{ session('success') }}</div>@endif
 @if($errors->any())<div class="flash error">{{ $errors->first() }}</div>@endif
 <div class="portal-welcome"><p class="eyebrow">MIN SIDE</p><h1>Hei, {{ explode(' ', $customer->name)[0] }}</h1><p>Her har du biler, hjul, timer, tilbud og utført arbeid samlet på ett sted.</p></div>
@@ -38,5 +39,5 @@
 <section id="historikk" class="panel portal-section"><div class="portal-section-head"><div><p class="eyebrow">HISTORIKK</p><h2>Utført arbeid</h2></div><span>{{ $customer->workOrders->count() }} jobber</span></div>
 @forelse($customer->workOrders as $order)<div class="portal-history"><div><strong>{{ $order->reference }}</strong><span>{{ $order->vehicle?->registration_number }} · {{ ($order->completed_at ?? $order->created_at)->format('d.m.Y') }}</span></div><span class="status {{ $order->status==='completed'?'completed':'in_progress' }}">{{ ['draft'=>'Klargjøres','ready'=>'Klar','in_progress'=>'Pågår','quality_check'=>'Kvalitetskontroll','completed'=>'Fullført','cancelled'=>'Avbrutt'][$order->status] ?? $order->status }}</span><small>{{ $order->tasks->where('completed',true)->count() }} av {{ $order->tasks->count() }} oppgaver fullført</small></div>@empty<p class="empty">Ingen arbeidsordre er registrert ennå.</p>@endforelse</section>
 
-<footer>Den personlige lenken gir tilgang til kundeportalen. Ikke videresend den.</footer></main>
-<script src="{{ asset('portal-booking.js') }}?v=20260810-1" defer></script></body></html>
+<footer>{{ $adminPreview ? 'Administrativ, skrivebeskyttet forhåndsvisning.' : 'Den personlige lenken gir tilgang til kundeportalen. Ikke videresend den.' }}</footer></main>
+@if($adminPreview)<style>.portal-preview-banner{position:sticky;top:12px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:14px 17px;border:1px solid #d7ab45;border-radius:13px;background:#fff4d6;box-shadow:0 8px 24px rgba(70,52,14,.12)}.portal-preview-banner div{display:grid;gap:2px}.portal-preview-banner span{color:#6c571d;font-size:13px}.portal-preview-banner a{white-space:nowrap;color:#5b4510;font-weight:800}.portal-preview form{opacity:.62}.portal-preview form button,.portal-preview form input,.portal-preview form select{cursor:not-allowed}@media(max-width:650px){.portal-preview-banner{position:static;display:grid}.portal-preview-banner a{white-space:normal}}</style><script>document.querySelectorAll('form').forEach(function(form){form.inert=true;form.setAttribute('aria-disabled','true')});</script>@else<script src="{{ asset('portal-booking.js') }}?v=20260810-1" defer></script>@endif</body></html>

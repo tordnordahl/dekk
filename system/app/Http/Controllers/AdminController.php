@@ -12,6 +12,7 @@ use App\Models\WorkBay;
 use App\Models\ServiceSetting;
 use App\Models\TireProduct;
 use App\Models\IntegrationSetting;
+use App\Models\Organization;
 use App\Models\ServiceProduct;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,44 @@ class AdminController extends Controller
             'locations'=>StorageLocation::where('organization_id',$org)->where('active',true)->count(),
             'vegvesen'=>IntegrationSetting::where('organization_id',$org)->where('provider','vegvesen')->where('active',true)->exists(),
         ]]);
+    }
+
+    public function portals(Request $request): View
+    {
+        return view('admin.portals', [
+            'organization' => Organization::findOrFail($request->user()->organization_id),
+        ]);
+    }
+
+    public function openCustomerPortal(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'registration_number' => ['required', 'string', 'max:20'],
+        ]);
+        $registration = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $data['registration_number']));
+        $vehicle = Vehicle::query()
+            ->where('organization_id', $request->user()->organization_id)
+            ->where('registration_number', $registration)
+            ->first();
+
+        if (! $vehicle) {
+            return back()->withErrors([
+                'registration_number' => 'Fant ingen kunde med registreringsnummer '.$registration.'.',
+            ])->withInput();
+        }
+
+        DB::table('audit_logs')->insert([
+            'organization_id' => $request->user()->organization_id,
+            'user_id' => $request->user()->id,
+            'action' => 'customer_portal.previewed',
+            'subject_type' => Customer::class,
+            'subject_id' => $vehicle->customer_id,
+            'ip_address' => $request->ip(),
+            'metadata' => json_encode(['registration_number' => $registration]),
+            'created_at' => now(),
+        ]);
+
+        return redirect()->route('admin.portals.customer-preview', $vehicle->customer_id);
     }
 
     public function index(Request $request, DefaultServiceCatalog $defaultServices): View

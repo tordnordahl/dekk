@@ -124,6 +124,9 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::post('/tilbud', [QuoteController::class, 'store'])->name('quotes.store');
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/', [AdminController::class, 'hub'])->name('admin');
+        Route::get('/portaler', [AdminController::class, 'portals'])->name('admin.portals');
+        Route::post('/portaler/kunde', [AdminController::class, 'openCustomerPortal'])->middleware('throttle:30,1')->name('admin.portals.customer');
+        Route::get('/portaler/kunde/{customer}', [CustomerPortalController::class, 'adminPreview'])->name('admin.portals.customer-preview');
         Route::get('/sikkerhet', [TwoFactorController::class, 'setup'])->name('admin.security');
         Route::post('/sikkerhet/tofaktor', [TwoFactorController::class, 'enable'])->middleware('throttle:6,1')->name('admin.security.2fa.enable');
         Route::delete('/sikkerhet/tofaktor', [TwoFactorController::class, 'disable'])->name('admin.security.2fa.disable');

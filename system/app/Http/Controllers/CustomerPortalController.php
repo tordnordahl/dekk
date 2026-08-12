@@ -35,18 +35,29 @@ class CustomerPortalController extends Controller
     public function show(string $token, BookingAvailabilityService $availability): View
     {
         $access = $this->access($token);
+        return $this->renderPortal($access->customer_id, $token, $availability, false);
+    }
+
+    public function adminPreview(Request $request, Customer $customer, BookingAvailabilityService $availability): View
+    {
+        abort_unless($customer->organization_id === $request->user()->organization_id, 404);
+        return $this->renderPortal($customer->id, 'preview', $availability, true);
+    }
+
+    private function renderPortal(int $customerId, string $token, BookingAvailabilityService $availability, bool $adminPreview): View
+    {
         $customer = Customer::with([
             'organization',
             'vehicles.tireSets.inspections.measurements',
             'bookings' => fn ($query) => $query->where('starts_at', '>=', now())->whereNotIn('status', ['cancelled', 'no_show'])->orderBy('starts_at'),
             'quotes' => fn ($query) => $query->with(['items', 'vehicle', 'sourceTireSet'])->latest()->limit(20),
             'workOrders' => fn ($query) => $query->with(['vehicle', 'tasks'])->latest()->limit(20),
-        ])->findOrFail($access->customer_id);
+        ])->findOrFail($customerId);
         $services = ServiceProduct::where('organization_id', $customer->organization_id)->where('active', true)->orderBy('name')->get();
         $selectedServices = $services->take(1);
         $branchId = $customer->branch_id ?: DB::table('branches')->where('organization_id',$customer->organization_id)->where('active',true)->value('id');
         $slots = $selectedServices->isEmpty() || !$branchId ? collect() : $availability->slots($customer->organization_id, $branchId, $selectedServices, null, 5);
-        return view('portal.show', compact('customer', 'token', 'services', 'slots'));
+        return view('portal.show', compact('customer', 'token', 'services', 'slots', 'adminPreview'));
     }
 
     public function availability(Request $request, string $token, BookingAvailabilityService $availability)
