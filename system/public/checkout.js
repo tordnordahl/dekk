@@ -9,17 +9,35 @@
     const statusUrl = document.querySelector('meta[name="checkout-status-url"]')?.content;
     if (!statusUrl) return;
 
-    const poll = window.setInterval(async () => {
+    let stopped = false;
+    let delay = 6000;
+
+    const poll = async () => {
+        if (stopped || document.hidden) {
+            window.setTimeout(poll, delay);
+            return;
+        }
         try {
-            const response = await fetch(statusUrl, {headers: {Accept: 'application/json'}});
-            if (!response.ok) return;
-            const data = await response.json();
-            if (data.status === 'paid' || data.status === 'expired' || data.status === 'failed') {
-                window.clearInterval(poll);
-                window.location.reload();
+            const response = await fetch(statusUrl, {
+                headers: {Accept: 'application/json'},
+                cache: 'no-store',
+            });
+            if (response.status === 429) {
+                delay = Math.min(delay * 2, 60000);
+            } else if (response.ok) {
+                delay = 6000;
+                const data = await response.json();
+                if (['paid', 'expired', 'failed'].includes(data.status)) {
+                    stopped = true;
+                    window.location.reload();
+                    return;
+                }
             }
         } catch (_error) {
-            // Midlertidige nettverksfeil forsøkes igjen ved neste intervall.
+            delay = Math.min(delay * 2, 60000);
         }
-    }, 3000);
+        window.setTimeout(poll, delay);
+    };
+
+    window.setTimeout(poll, delay);
 })();

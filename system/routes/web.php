@@ -58,7 +58,10 @@ Route::view('/personvern', 'legal.privacy')->name('legal.privacy');
 Route::match(['get','post'],'/system-cron/{token}',[SuperAdminOperationsController::class,'run'])->middleware('throttle:3,1')->name('system.cron');
 Route::get('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'show'])->middleware('throttle:60,1')->name('checkout.show');
 Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'lookup'])->middleware('throttle:15,1')->name('checkout.lookup');
-Route::get('/utsjekk/betaling/{payment:public_id}/{token}',[CheckoutPortalController::class,'status'])->middleware('throttle:120,1')->name('checkout.status');
+// Status-URL-en er skrivebeskyttet og sikret med en tilfeldig 64-tegns token.
+// Nettleseren poller denne under aktiv betaling, derfor skal den ikke dele en
+// IP-basert grense med andre kunder bak samme bedriftsnett/proxy.
+Route::get('/utsjekk/betaling/{payment:public_id}/{token}',[CheckoutPortalController::class,'status'])->name('checkout.status');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vis',[CheckoutPortalController::class,'showPayment'])->middleware('throttle:60,1')->name('checkout.payment');
 Route::post('/utsjekk/betaling/{payment:public_id}/{token}/start',[CheckoutPortalController::class,'start'])->middleware('throttle:15,1')->name('checkout.start');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vipps-retur',[CheckoutPortalController::class,'vippsReturn'])->middleware('throttle:60,1')->name('checkout.vipps.return');
