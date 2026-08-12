@@ -3,6 +3,7 @@
 <link rel="stylesheet" href="{{ asset('booking-availability.css') }}?v=20260810-1">
 <link rel="stylesheet" href="{{ asset('booking-services.css') }}?v=20260810-1">
 <link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'booking-overview.css']) }}?v=20260812-3">
+<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'booking-day-nav.css']) }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-identity.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-completion.css') }}?v=20260811-2">
 <link rel="stylesheet" href="{{ asset('booking-receipts.css') }}?v=20260812-1">
@@ -25,6 +26,15 @@
         <label>Til<input type="date" name="to" value="{{ request('to',today()->addDays(30)->toDateString()) }}"></label>
         <label>Status<select name="status"><option value="">Alle</option><option value="scheduled" @selected(request('status')==='scheduled')>Planlagt</option><option value="in_progress" @selected(request('status')==='in_progress')>Pågår</option><option value="completed" @selected(request('status')==='completed')>Fullført</option></select></label>
         <button class="button">Vis periode</button><a href="{{ route('bookings',['date'=>'today']) }}">I dag</a><a href="{{ route('bookings',['from'=>today()->subYear()->toDateString(),'to'=>today()->toDateString(),'status'=>'completed']) }}">Tidligere timer</a>
+        @php
+            $bookDate = now()->parse(request('from', today()->toDateString()));
+            $dayNavigation = array_filter(['status' => request('status')]);
+        @endphp
+        <nav class="booking-day-nav" aria-label="Bytt dag">
+            <a aria-label="Forrige dag" title="Forrige dag" href="{{ route('bookings', array_merge($dayNavigation, ['from'=>$bookDate->copy()->subDay()->toDateString(), 'to'=>$bookDate->copy()->subDay()->toDateString()])) }}">←</a>
+            <span>{{ $bookDate->isToday() ? 'I dag' : $bookDate->format('d.m') }}</span>
+            <a aria-label="Neste dag" title="Neste dag" href="{{ route('bookings', array_merge($dayNavigation, ['from'=>$bookDate->copy()->addDay()->toDateString(), 'to'=>$bookDate->copy()->addDay()->toDateString()])) }}">→</a>
+        </nav>
         @endif
     </form>
     <div class="booking-toolbar-actions">

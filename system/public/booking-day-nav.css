@@ -1,0 +1,40 @@
+.booking-day-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+}
+
+.booking-day-nav a {
+    display: flex;
+    width: 36px;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d7e1dc;
+    border-radius: 9px;
+    background: #fff;
+    color: #173d30;
+    font-size: 17px;
+    font-weight: 900;
+}
+
+.booking-day-nav a:hover {
+    border-color: #277557;
+    background: #eef7f2;
+}
+
+.booking-day-nav span {
+    min-width: 47px;
+    color: #566a61;
+    font-size: 11px;
+    font-weight: 850;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .booking-day-nav {
+        width: 100%;
+        margin: 2px 0 0;
+    }
+}
