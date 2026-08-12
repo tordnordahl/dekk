@@ -5,10 +5,10 @@ use RuntimeException;
 
 class GitDeploymentService
 {
-    private const PROTECTED_PATHS=['.env','system/.env','.env.production','system/.env.production','storage/','system/storage/','public/storage/','system/public/storage/','composer.lock','system/composer.lock','.DS_Store'];
+    private const PROTECTED_PATHS=['.env','system/.env','.env.production','system/.env.production','storage/','system/storage/','public/storage/','system/public/storage/','vendor/','system/vendor/','composer.lock','system/composer.lock','.DS_Store'];
     private string $path;private string $git;private string $remote;
     public function __construct(){ $this->path=(string)config('deployment.repository_path');$this->git=(string)config('deployment.git_binary');$this->remote=(string)config('deployment.remote','origin'); }
-    public function inspect(bool $fetch=false):array
+    public function inspect(bool $fetch=false,bool $deep=false):array
     {
         if(!is_dir($this->path)||!is_dir($this->path.'/.git'))return['available'=>false,'error'=>'Prosjektmappen er ikke et Git-repository.','path'=>$this->path];
         try{
@@ -22,11 +22,12 @@ class GitDeploymentService
             if($fetch)$this->run(['-c','core.hooksPath=/dev/null','fetch','--prune',$this->remote,$branch],120);
             $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;$remoteExists=$this->ok(['show-ref','--verify','--quiet',$remoteRef]);
             $ahead=$behind=0;$files=[];
-            if($remoteExists){$counts=preg_split('/\s+/',trim($this->run(['rev-list','--left-right','--count','HEAD...'.$remoteRef])));$ahead=(int)($counts[0]??0);$behind=(int)($counts[1]??0);if($behind>0)$files=array_values(array_filter(explode("\n",trim($this->run(['diff','--name-only','HEAD..'.$remoteRef])))));}
+            if($remoteExists){$counts=preg_split('/\s+/',trim($this->run(['rev-list','--left-right','--count','HEAD...'.$remoteRef])));$ahead=(int)($counts[0]??0);$behind=(int)($counts[1]??0);$files=$this->workingTreeDifferences($remoteRef);}
             $candidates=array_values(array_unique(array_merge($files,$localFiles)));$ignored=array_values(array_filter($candidates,fn($f)=>$this->protected($f)));$selectable=array_values(array_filter($candidates,fn($f)=>!$this->protected($f)));
+            $extraFiles=[];if($deep){$untracked=array_values(array_filter(explode("\n",trim($this->run(['ls-files','--others','--exclude-standard'])))));$extraFiles=array_values(array_filter($untracked,fn($file)=>!$this->protected($file)));}
             $lockPath=in_array('system/composer.lock',$candidates,true)?'system/composer.lock':(in_array('composer.lock',$candidates,true)?'composer.lock':null);
             $vendor=$lockPath&&$remoteExists?$this->verifyVendor($remoteRef,$lockPath):['required'=>false,'ready'=>true,'message'=>null];
-            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD']))];
+            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'extra_files'=>$extraFiles,'deep_checked'=>$deep,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD']))];
         }catch(\Throwable $e){return['available'=>false,'error'=>$e->getMessage(),'path'=>$this->path];}
     }
     public function initialize(string $repositoryUrl,string $branch):array
@@ -60,7 +61,7 @@ class GitDeploymentService
         $before=$this->inspect(true);if(!($before['available']??false))throw new RuntimeException($before['error']??'Git-kontrollen feilet.');
         if($before['ahead']>0)throw new RuntimeException('Serveren har commits som ikke finnes på GitHub. Oppdateringen er stoppet.');
         if($before['vendor_required'])throw new RuntimeException('Oppdateringen endrer composer.lock og krever ny vendor-mappe. Last opp vendor manuelt før denne versjonen aktiveres.');
-        if($before['behind']<1)return$before+['updated'=>false];
+        if($before['behind']<1&&empty($before['files']))return$before+['updated'=>false];
         return $this->synchronize($selectedFiles);
     }
     public function synchronize(array $selectedFiles=[]):array
@@ -70,7 +71,7 @@ class GitDeploymentService
         $tracked=array_values(array_filter(explode("\n",trim($this->run(['ls-files'])))));
         $remoteTracked=array_values(array_filter(explode("\n",trim($this->run(['ls-tree','-r','--name-only',$remoteRef])))));
         $sensitive=array_values(array_unique(array_filter(array_merge($tracked,$remoteTracked),fn($file)=>$this->protected($file))));
-        $changed=array_values(array_filter(explode("\n",trim($this->run(['diff','--name-only','HEAD',$remoteRef])))));
+        $changed=$this->workingTreeDifferences($remoteRef);
         $local=array_values(array_filter(explode("\n",trim($this->run(['status','--porcelain','--untracked-files=no'])))));
         $files=array_values(array_unique(array_merge($changed,array_map(fn($line)=>trim(substr($line,3)),$local))));
         $eligible=array_values(array_filter($files,fn($file)=>!$this->protected($file)));
@@ -94,6 +95,14 @@ class GitDeploymentService
     }
     private function run(array $args,int $timeout=30):string{$p=new Process([$this->git,...$args],$this->path,null,null,$timeout);$p->run();if(!$p->isSuccessful()){$error=trim($p->getErrorOutput()?:$p->getOutput())?:'Git-kommandoen feilet.';$error=preg_replace('~https://[^\s/@]+@~','https://***@',$error);throw new RuntimeException(mb_substr($error,0,700));}return$p->getOutput();}
     private function ok(array $args):bool{$p=new Process([$this->git,...$args],$this->path,null,null,10);$p->run();return$p->isSuccessful();}
+    private function workingTreeDifferences(string $remoteRef):array
+    {
+        $remote=[];foreach(array_filter(explode("\n",trim($this->run(['ls-tree','-r',$remoteRef]))))as$line){if(!preg_match('/^[0-9]+\s+blob\s+([a-f0-9]+)\t(.+)$/',$line,$match))continue;$file=str_replace('\\','/',$match[2]);if(!$this->protected($file))$remote[$file]=$match[1];}
+        $different=[];$existing=[];foreach($remote as$file=>$hash){if(!is_file($this->path.'/'.$file))$different[]=$file;else$existing[]=$file;}
+        foreach(array_chunk($existing,100)as$chunk){$hashes=array_values(array_filter(explode("\n",trim($this->run(['hash-object','--',...$chunk],60)))));foreach($chunk as$index=>$file)if(!isset($hashes[$index])||!hash_equals($remote[$file],$hashes[$index]))$different[]=$file;}
+        $tracked=array_values(array_filter(explode("\n",trim($this->run(['ls-files'])))));foreach($tracked as$file)if(!$this->protected($file)&&!isset($remote[$file])&&file_exists($this->path.'/'.$file))$different[]=$file;
+        return array_values(array_unique($different));
+    }
     private function maskUrl(string $url):string{return preg_replace('~(https://)[^/@]+@~','$1***@',$url);}
     private function verifyVendor(string $remoteRef,string $lockPath):array
     {
