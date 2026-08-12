@@ -1,6 +1,6 @@
 <x-layouts.app title="Abonnement · DekkPilot" heading="Abonnement">
 <section class="grid form-grid"><article class="panel">
-<p class="eyebrow">DEKKPILOT FULL TILGANG</p><h2>119 kr per måned</h2>
+<p class="eyebrow">DEKKPILOT FULL TILGANG</p><h2>249 kr per måned</h2>
 <p>Kontoen er aktiv. Alle funksjoner, integrasjoner, kunder, ansatte, bookinger og hjulsett er inkludert.</p>
 <div class="usage-note"><strong>SMS faktureres etter bruk</strong><span>SMS kommer i tillegg til månedsprisen. E-post og bruk av systemet er inkludert.</span></div>
 <div class="accounting-stats"><span>Status <strong>Aktivt</strong></span><span>Fakturering <strong>Kun faktura</strong></span><span>SMS denne måneden <strong>{{ number_format($smsUsage,0,',',' ') }}</strong></span></div><p class="muted">DekkPilot teller bare SMS som Twilio faktisk har akseptert for sending. SMS kommer på fakturagrunnlaget etter bruk.</p>

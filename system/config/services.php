@@ -68,7 +68,7 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'price_id' => env('STRIPE_PRICE_ID'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
-        'monthly_price_nok' => 119,
+        'monthly_price_nok' => 249,
     ],
 
 ];

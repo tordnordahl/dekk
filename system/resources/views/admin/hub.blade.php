@@ -12,6 +12,6 @@
   <a class="panel admin-hub-card" href="{{ route('admin.system') }}"><span class="hub-icon">⚙</span><div><h2>E-postoppsett{{ auth()->user()->is_super_admin ? ' og backup' : '' }}</h2><p>Velg virksomhetens avsender, test levering{{ auth()->user()->is_super_admin ? ' og administrer serverbackup' : '' }}.</p><strong>Åpne systeminnstillinger →</strong></div></a>
   <a class="panel admin-hub-card" href="{{ route('admin.security') }}"><span class="hub-icon">⌾</span><div><h2>Sikkerhet og app-tilgang</h2><p>Tofaktor, aktive enheter og sikkerhetslogg.</p><strong>Åpne sikkerhet →</strong></div></a>
   <a class="panel admin-hub-card" href="{{ route('admin.portals') }}"><span class="hub-icon">↗</span><div><h2>Portaler og visninger</h2><p>Åpne kundeportal via registreringsnummer, utsjekking og teknikervisning.</p><strong>Se alle portalene →</strong></div></a>
-  @if(auth()->user()->role==='owner')<a class="panel admin-hub-card" href="{{ route('billing') }}"><span class="hub-icon">◇</span><div><h2>Abonnement og faktura</h2><p>Se pris, fakturastatus og eventuell rabatt. SMS kommer i tillegg etter bruk.</p><strong>119 kr per måned + SMS-forbruk →</strong></div></a>@endif
+  @if(auth()->user()->role==='owner')<a class="panel admin-hub-card" href="{{ route('billing') }}"><span class="hub-icon">◇</span><div><h2>Abonnement og faktura</h2><p>Se pris, fakturastatus og eventuell rabatt. SMS kommer i tillegg etter bruk.</p><strong>249 kr per måned + SMS-forbruk →</strong></div></a>@endif
 </section>
 </x-layouts.app>

@@ -48,12 +48,14 @@ class ApiController extends Controller
 
     public function customers(Request $request): JsonResponse
     {
+        $this->requireRole($request, ['owner','admin','manager','customer_service']);
         $items = Customer::with('vehicles')->where('organization_id', $request->user()->organization_id)->latest()->paginate(min(100, max(1, (int) $request->query('per_page', 25))));
         return response()->json($items);
     }
 
     public function vehicles(Request $request): JsonResponse
     {
+        $this->requireRole($request, ['owner','admin','manager','customer_service']);
         return response()->json(Vehicle::with('customer')->where('organization_id', $request->user()->organization_id)->paginate(50));
     }
 
@@ -112,6 +114,7 @@ class ApiController extends Controller
     public function workOrder(Request $request, WorkOrder $workOrder): JsonResponse
     {
         abort_unless($workOrder->organization_id===$request->user()->organization_id,404);
+        if(in_array($request->user()->role,['technician','warehouse'],true))abort_unless($workOrder->assigned_user_id===$request->user()->id,403);
         return response()->json(['data'=>$workOrder->load(['customer','vehicle.tireSets.inspections.measurements','booking','quote.items','tasks','reservations'])]);
     }
 

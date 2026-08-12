@@ -433,7 +433,7 @@ class OperationsController extends Controller
         $calendarEmployees = $employees->where('branch_id', $request->user()->branch_id)->values();
         $capacityBookings = Booking::where('organization_id', $org)->where('branch_id', $request->user()->branch_id)->whereNotIn('status', ['cancelled', 'no_show'])->where('starts_at', '>=', today()->subDay())->where('starts_at', '<', today()->addDays(62))->get(['id','starts_at','ends_at']);
         if ($workBays->isNotEmpty()) $bookings->getCollection()->each(function ($booking) use ($capacityBookings, $workBays) {$simultaneous=$capacityBookings->filter(fn($other)=>$other->starts_at->lt($booking->ends_at)&&$other->ends_at->gt($booking->starts_at))->count();$booking->setAttribute('capacity_overbooked',$simultaneous>$workBays->count());});
-        $services = ServiceProduct::where('organization_id',$org)->where('active',true)->orderBy('name')->get();
+        $services = ServiceProduct::where('organization_id',$org)->where('active',true)->withCount('bookings')->orderByDesc('is_favorite')->orderByDesc('bookings_count')->orderBy('name')->get();
         $bookingPrefill = null;
         if ($request->query('new') === '1' && $request->filled('customer_id')) {
             $customer = Customer::with(['vehicles' => fn ($query) => $query->orderBy('registration_number')])

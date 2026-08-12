@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\ConfigureMail::class);
         $middleware->validateCsrfTokens(except: ['webhooks/twilio/*']);
-        $middleware->alias(['api.token' => \App\Http\Middleware\ApiToken::class, '2fa'=>\App\Http\Middleware\EnsureTwoFactorConfirmed::class, 'admin' => \App\Http\Middleware\AdminOnly::class, 'subscribed'=>\App\Http\Middleware\EnsureSubscribed::class, 'superadmin'=>\App\Http\Middleware\SuperAdminOnly::class, 'impersonate'=>\App\Http\Middleware\ImpersonateTenant::class, 'demo.readonly'=>\App\Http\Middleware\DemoReadOnly::class]);
+        $middleware->alias(['api.token' => \App\Http\Middleware\ApiToken::class, '2fa'=>\App\Http\Middleware\EnsureTwoFactorConfirmed::class, 'admin' => \App\Http\Middleware\AdminOnly::class, 'role'=>\App\Http\Middleware\RoleOnly::class, 'subscribed'=>\App\Http\Middleware\EnsureSubscribed::class, 'superadmin'=>\App\Http\Middleware\SuperAdminOnly::class, 'impersonate'=>\App\Http\Middleware\ImpersonateTenant::class, 'demo.readonly'=>\App\Http\Middleware\DemoReadOnly::class, 'tenant.rbac'=>\App\Http\Middleware\TenantRoleAccess::class]);
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('quotes:follow-up')->dailyAt('09:00')->withoutOverlapping();

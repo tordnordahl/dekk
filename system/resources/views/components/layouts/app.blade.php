@@ -23,10 +23,20 @@
             <a class="{{ request()->routeIs('actions') ? 'active' : '' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Avvik</span></a>
             <a href="{{ route('ui-mode.choose') }}"><x-icon name="settings"/><span>Bytt visning</span></a>
             @else
+            @if(in_array(auth()->user()->role,['technician','warehouse'],true))
+            <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><x-icon name="home"/><span>Oversikt</span></a>
+            <a class="{{ request()->routeIs('actions') ? 'active' : '' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Krever handling</span></a>
+            <a class="{{ request()->routeIs('workday*') ? 'active' : '' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>Min arbeidsdag</span></a>
+            @if(auth()->user()->role==='technician')<a class="{{ request()->routeIs('bookings') ? 'active' : '' }}" href="{{ route('bookings') }}"><x-icon name="calendar"/><span>Timebok</span></a>@endif
+            <a class="{{ request()->routeIs('warehouse.map') ? 'active' : '' }}" href="{{ route('warehouse.map') }}"><x-icon name="warehouse"/><span>Lagerkart</span></a>
+            <a class="{{ request()->routeIs('inventory*') ? 'active' : '' }}" href="{{ route('inventory') }}"><x-icon name="tires"/><span>Hjulhotell</span></a>
+            @if(auth()->user()->role==='technician')<a class="{{ request()->routeIs('work-orders*') ? 'active' : '' }}" href="{{ route('work-orders.index') }}"><x-icon name="orders"/><span>Arbeidsordrer</span></a>@endif
+            @else
             <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><x-icon name="home"/><span>Oversikt</span></a>
             <a class="{{ request()->routeIs('actions') ? 'active' : '' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Krever handling</span></a>
             <a class="{{ request()->routeIs('workday*') ? 'active' : '' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>Min arbeidsdag</span></a>
             <a class="{{ request()->routeIs('bookings*') ? 'active' : '' }}" href="{{ route('bookings') }}"><x-icon name="calendar"/><span>Bookinger</span></a>
+            @if(in_array(auth()->user()->role,['owner','admin','manager','customer_service'],true))<a class="{{ request()->routeIs('season-recall*') ? 'active' : '' }}" href="{{ route('season-recall.index') }}"><x-icon name="calendar"/><span>Sesonginnkalling</span></a>@endif
             <a class="{{ request()->routeIs('work-orders*') ? 'active' : '' }}" href="{{ route('work-orders.index') }}"><x-icon name="orders"/><span>Arbeidsordrer</span></a>
             <a class="{{ request()->routeIs('customers*') ? 'active' : '' }}" href="{{ route('customers') }}"><x-icon name="customers"/><span>Kunder</span></a>
             <a class="{{ request()->routeIs('inventory*') ? 'active' : '' }}" href="{{ route('inventory') }}"><x-icon name="warehouse"/><span>Hjulhotell</span></a>
@@ -34,6 +44,7 @@
             <a class="{{ request()->routeIs('quotes*') ? 'active' : '' }}" href="{{ route('quotes') }}"><x-icon name="quote"/><span>Tilbud</span></a>
             <a class="{{ request()->routeIs('statistics') ? 'active' : '' }}" href="{{ route('statistics') }}"><x-icon name="chart"/><span>Statistikk</span></a>
             @if(in_array(auth()->user()->role, ['owner','admin'], true))<a class="mobile-admin {{ request()->routeIs('admin*') ? 'active' : '' }}" href="{{ route('admin') }}"><x-icon name="settings"/><span>Admin</span></a>@endif
+            @endif
             @endif
         </nav>
         <details class="profile-menu">
@@ -51,7 +62,7 @@
     <button class="nav-backdrop" type="button" data-nav-backdrop aria-label="Lukk meny" tabindex="-1"></button>
     <main id="main-content" tabindex="-1">
         @if(request()->attributes->get('impersonated_organization'))<div class="impersonation-bar"><span>★ Du arbeider som superadmin i <strong>{{ request()->attributes->get('impersonated_organization')->name }}</strong></span><form method="post" action="{{ route('superadmin.leave') }}">@csrf<button>Tilbake til alle kunder</button></form></div>@endif
-        <header class="topbar"><div class="topbar-title"><button class="nav-toggle" type="button" data-nav-toggle aria-label="Skjul eller vis meny" aria-controls="main-navigation" aria-expanded="true"><x-icon name="menu" size="21"/></button><div><p class="eyebrow">{{ now()->translatedFormat('l j. F') }}</p><h1>{{ $heading ?? 'God dag' }}</h1></div></div><div class="top-actions"><a class="button ghost" href="{{ route('customers', ['new' => 1]) }}"><x-icon name="plus" size="17"/>Ny kunde</a><a class="button" href="{{ route('bookings', ['new' => 1]) }}"><x-icon name="plus" size="17"/>Ny booking</a></div></header>
+        <header class="topbar"><div class="topbar-title"><button class="nav-toggle" type="button" data-nav-toggle aria-label="Skjul eller vis meny" aria-controls="main-navigation" aria-expanded="true"><x-icon name="menu" size="21"/></button><div><p class="eyebrow">{{ now()->translatedFormat('l j. F') }}</p><h1>{{ $heading ?? 'God dag' }}</h1></div></div>@if(!in_array(auth()->user()->role,['technician','warehouse','accounting'],true))<div class="top-actions"><a class="button ghost" href="{{ route('customers', ['new' => 1]) }}"><x-icon name="plus" size="17"/>Ny kunde</a><a class="button" href="{{ route('bookings', ['new' => 1]) }}"><x-icon name="plus" size="17"/>Ny booking</a></div>@endif</header>
         @if(session('success'))<div class="flash">✓ {{ session('success') }}</div>@endif
         @if(session('warning'))<div class="warning-flash">! {{ session('warning') }}</div>@endif
         @if($errors->any())<div class="errors"><strong>Noe må rettes:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif

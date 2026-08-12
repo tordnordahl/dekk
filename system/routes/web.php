@@ -31,6 +31,7 @@ use App\Http\Controllers\CheckoutPortalController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\SuperAdminOperationsController;
 use App\Http\Controllers\SuperAdminDummyDataController;
+use App\Http\Controllers\SeasonRecallController;
 
 // Lever nye CSS/JS-filer gjennom den vanlige frontcontrolleren. Enkelte delte
 // webhotell sender ikke /api/* videre til Laravel, men /index.php/* fungerer.
@@ -84,7 +85,7 @@ Route::middleware(['auth','2fa','superadmin'])->group(function(){
     Route::post('/superadmin/diagnose',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'toggle'])->middleware('throttle:6,1')->name('superadmin.diagnostics.toggle');
 });
 
-Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->group(function () {
+Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tenant.rbac'])->group(function () {
     Route::get('/', [OperationsController::class, 'dashboard'])->name('dashboard');
     Route::view('/hjelp', 'help.index')->name('help');
     Route::get('/krever-handling', [ActionCenterController::class, 'index'])->name('actions');
@@ -128,6 +129,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::patch('/arbeidsordrer/{workOrder}/oppgaver/{task}', [WorkshopController::class, 'task'])->name('work-orders.task');
     Route::post('/kunder/{customer}/portal', [CustomerPortalController::class, 'invite'])->name('customers.portal.invite');
     Route::get('/bookinger', [OperationsController::class, 'bookings'])->name('bookings');
+    Route::get('/sesonginnkalling', [SeasonRecallController::class, 'index'])->middleware('role:owner,admin,manager,customer_service')->name('season-recall.index');
+    Route::post('/sesonginnkalling', [SeasonRecallController::class, 'send'])->middleware(['role:owner,admin,manager','throttle:3,10'])->name('season-recall.send');
     Route::get('/bookinger/kundesok', [OperationsController::class, 'bookingCustomerSearch'])->middleware('throttle:60,1')->name('bookings.customer-search');
     Route::get('/bookinger/ledige-tider', [OperationsController::class, 'bookingAvailability'])->middleware('throttle:60,1')->name('bookings.availability');
     Route::post('/bookinger', [OperationsController::class, 'storeBooking'])->name('bookings.store');

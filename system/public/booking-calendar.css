@@ -33,6 +33,14 @@
 }
 
 /* Timebokvisning og klinisk kalender */
+.availability-overview{display:grid;grid-template-columns:repeat(5,minmax(105px,1fr));gap:8px}
+.availability-overview h3{grid-column:1/-1;margin:13px 0 2px;padding-top:12px;border-top:1px solid var(--line);font-size:14px;text-transform:capitalize}
+.availability-overview h3:first-child{margin-top:0;padding-top:0;border:0}
+.availability-overview a{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:0 6px;padding:11px 12px;border:1px solid #dbe5e0;border-radius:10px;background:#f8faf9}
+.availability-overview a:hover{border-color:#3d8e6d;background:#edf7f2}
+.availability-overview strong{font-size:16px}
+.availability-overview span{color:#75817b;font-size:10px}
+.availability-overview em{grid-column:1/-1;margin-top:5px;color:#176a48;font-size:10px;font-style:normal;font-weight:800}
 .booking-view-switch{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border:1px solid #dfe6e2;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(20,55,43,.05)}
 .booking-view-switch a{padding:9px 15px;border-radius:9px;color:#5d6f66;font-size:13px;font-weight:800;white-space:nowrap}
 .booking-view-switch a:hover{background:#f0f6f3;color:#173d30}
@@ -71,4 +79,6 @@
 .clinical-dropins{display:flex;align-items:center;gap:8px;margin-top:10px}
 .clinical-dropins:empty{display:none}
 .clinical-dropins strong,.clinical-dropins span{padding:7px 10px;border-radius:8px;background:#f0f4f2;font-size:11px}
+@media(max-width:900px){.availability-overview{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.booking-view-switch{display:flex;width:100%;overflow-x:auto}.booking-view-switch a{flex:1 0 auto;text-align:center}.booking-day-nav{width:100%;margin:2px 0 0}.clinical-head{align-items:flex-start;flex-direction:column}.clinical-date-nav{width:100%}.clinical-date-nav a:nth-child(2){flex:1}.clinical-split{overflow-x:auto}.clinical-split a{flex:0 0 auto}.clinical-calendar{grid-template-columns:52px repeat(var(--lanes),minmax(180px,1fr))}}
+@media(max-width:560px){.availability-overview{grid-template-columns:repeat(2,1fr)}}

@@ -130,8 +130,8 @@ class ManagementController extends Controller
     public function serviceProduct(Request $request): RedirectResponse
     {
         $org=$request->user()->organization_id;
-        $data=$request->validate(['code'=>['required','string','max:50',Rule::unique('service_products')->where('organization_id',$org)],'name'=>['required','string','max:150'],'description'=>['nullable','string','max:1000'],'category'=>['required',Rule::in(['storage','tire_change','repair','workshop','other'])],'fixed_price'=>['required','numeric','between:0,1000000'],'vat_rate'=>['required','numeric','between:0,100'],'duration_minutes'=>['required','integer','between:5,1440']]);
-        ServiceProduct::create(['public_id'=>(string)Str::uuid(),'organization_id'=>$org,'code'=>strtoupper($data['code']),'name'=>$data['name'],'description'=>$data['description']??null,'category'=>$data['category'],'fixed_price_cents'=>(int)round($data['fixed_price']*100),'vat_rate'=>$data['vat_rate'],'duration_minutes'=>$data['duration_minutes'],'active'=>true]);
+        $data=$request->validate(['code'=>['required','string','max:50',Rule::unique('service_products')->where('organization_id',$org)],'name'=>['required','string','max:150'],'description'=>['nullable','string','max:1000'],'category'=>['required',Rule::in(['storage','tire_change','repair','workshop','other'])],'fixed_price'=>['required','numeric','between:0,1000000'],'vat_rate'=>['required','numeric','between:0,100'],'duration_minutes'=>['required','integer','between:5,1440'],'is_favorite'=>['nullable','boolean']]);
+        ServiceProduct::create(['public_id'=>(string)Str::uuid(),'organization_id'=>$org,'code'=>strtoupper($data['code']),'name'=>$data['name'],'description'=>$data['description']??null,'category'=>$data['category'],'fixed_price_cents'=>(int)round($data['fixed_price']*100),'vat_rate'=>$data['vat_rate'],'duration_minutes'=>$data['duration_minutes'],'active'=>true,'is_favorite'=>$request->boolean('is_favorite')]);
         return back()->with('success','Tjenesten og fastprisen er lagt til.');
     }
 
@@ -152,8 +152,9 @@ class ManagementController extends Controller
             'fixed_price' => ['required','numeric','between:0,1000000'],
             'vat_rate' => ['required','numeric','between:0,100'],
             'duration_minutes' => ['required','integer','between:5,1440'],
+            'is_favorite' => ['nullable','boolean'],
         ]);
-        $service->update(['code'=>strtoupper($data['code']),'name'=>$data['name'],'description'=>$data['description']??null,'category'=>$data['category'],'fixed_price_cents'=>(int)round($data['fixed_price']*100),'vat_rate'=>$data['vat_rate'],'duration_minutes'=>$data['duration_minutes']]);
+        $service->update(['code'=>strtoupper($data['code']),'name'=>$data['name'],'description'=>$data['description']??null,'category'=>$data['category'],'fixed_price_cents'=>(int)round($data['fixed_price']*100),'vat_rate'=>$data['vat_rate'],'duration_minutes'=>$data['duration_minutes'],'is_favorite'=>$request->boolean('is_favorite')]);
         DB::table('audit_logs')->insert(['organization_id'=>$org,'user_id'=>$request->user()->id,'action'=>'service.updated','subject_type'=>ServiceProduct::class,'subject_id'=>$service->id,'ip_address'=>$request->ip(),'created_at'=>now()]);
         return back()->with('success','Tjenesten «'.$service->name.'» er oppdatert.');
     }
