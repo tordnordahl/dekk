@@ -3,8 +3,9 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="{{ asset('public/favicon.ico') }}" sizes="any">
     <meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ $title ?? 'DekkPilot' }}</title>
+    @php($safeAsset = fn (string $file) => \Illuminate\Support\Facades\Route::has('system.asset') ? route('system.asset', ['filename'=>$file]) : asset($file))
     @foreach(['app.css','operations.css','vehicle.css','admin.css','ui-fixes.css','inventory.css','inventory-table.css','inventory-density.css','tire-catalog.css','label-modal.css','workday.css','opportunities.css','quote-tools.css','booking-calendar.css','booking-actions.css','email-preview.css','dashboard.css','business-ranking.css','statistics.css','app-shell.css','ux-review.css','design-polish.css','floor-details.css','technician-mode.css','help.css','profile-menu-fix.css'] as $stylesheet)
-    <link rel="stylesheet" href="{{ route('system.asset', ['filename'=>$stylesheet]) }}?v=20260812-9">
+    <link rel="stylesheet" href="{{ $safeAsset($stylesheet) }}?v=20260812-10">
     @endforeach
 </head>
 <body class="{{ session('ui_mode') === 'technician' ? 'ui-mode-technician' : 'ui-mode-portal' }}"><a class="screen-reader-only" href="#main-content">Hopp til hovedinnhold</a>
@@ -69,7 +70,7 @@
 </div>
 @if(session('ui_mode') === 'technician')<nav class="technician-mobile-nav" aria-label="Teknikermeny"><a class="{{ request()->routeIs('workday*')?'active':'' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>I dag</span></a><a class="{{ request()->routeIs('warehouse.map')?'active':'' }}" href="{{ route('warehouse.map') }}"><x-icon name="warehouse"/><span>Kart</span></a><a class="{{ request()->routeIs('inventory*')?'active':'' }}" href="{{ route('inventory') }}"><x-icon name="tires"/><span>Hjul</span></a><a class="{{ request()->routeIs('actions')?'active':'' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Avvik</span></a><a href="{{ route('ui-mode.choose') }}"><x-icon name="settings"/><span>Bytt</span></a></nav>@endif
 @foreach(['app-shell.js','profile-menu.js','email-preview.js','booking-capacity.js','quote-preview.js','ux-review.js'] as $script)
-<script defer src="{{ route('system.asset', ['filename'=>$script]) }}?v=20260812-9"></script>
+<script defer src="{{ $safeAsset($script) }}?v=20260812-10"></script>
 @endforeach
 </body>
 </html>
