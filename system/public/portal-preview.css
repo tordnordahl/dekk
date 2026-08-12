@@ -1,0 +1,3 @@
+.portal-preview-banner{position:sticky;top:12px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:14px 17px;border:1px solid #d7ab45;border-radius:13px;background:#fff4d6;box-shadow:0 8px 24px rgba(70,52,14,.12)}
+.portal-preview-banner div{display:grid;gap:2px}.portal-preview-banner span{color:#6c571d;font-size:13px}.portal-preview-banner a{white-space:nowrap;color:#5b4510;font-weight:800}.portal-preview form{opacity:.62}.portal-preview form button,.portal-preview form input,.portal-preview form select{cursor:not-allowed}
+@media(max-width:650px){.portal-preview-banner{position:static;display:grid}.portal-preview-banner a{white-space:normal}}

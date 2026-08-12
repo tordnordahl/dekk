@@ -17,5 +17,5 @@
 @endif
 </section>
 <section class="panel"><p class="eyebrow">BESKYTTEDE DATA</p><h2>Dette røres aldri</h2><p class="muted"><code>.env</code>, databaseinnhold, <code>storage</code>, opplastede filer og serverens hemmeligheter skal være ignorert av Git. Oppdateringen avbrytes hvis GitHub likevel forsøker å endre slike stier.</p><p class="fine">Remote: {{ $status['remote_url']??'Ikke tilgjengelig' }} · Mappe: {{ $status['path']??'' }}</p></section>
-<script>document.querySelectorAll('form[action*="git-oppdatering"]').forEach(form=>form.addEventListener('submit',()=>{const button=form.querySelector('button[type="submit"],button:not([type])');if(!button)return;button.disabled=true;button.dataset.label=button.textContent;button.textContent='Arbeider …';}));</script>
+<script src="{{ asset('git-update.js') }}?v=20260812-1" defer></script>
 </x-layouts.app>

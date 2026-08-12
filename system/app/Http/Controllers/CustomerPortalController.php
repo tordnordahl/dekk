@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\CustomerPortalToken;
 use App\Models\Quote;
 use App\Models\ServiceProduct;
+use App\Models\TireProduct;
+use App\Models\TireSet;
 use App\Models\Vehicle;
 use App\Services\AcceptedQuoteWorkflow;
 use App\Services\BookingAvailabilityService;
@@ -54,10 +56,27 @@ class CustomerPortalController extends Controller
             'workOrders' => fn ($query) => $query->with(['vehicle', 'tasks'])->latest()->limit(20),
         ])->findOrFail($customerId);
         $services = ServiceProduct::where('organization_id', $customer->organization_id)->where('active', true)->orderBy('name')->get();
-        $selectedServices = $services->take(1);
+        $preferredVehicleId = (int) session('portal_preferred_vehicle_id', 0);
+        $preferredServiceId = optional($services->first(fn ($service) => preg_match('/dekk|hjul|skift|monter/i', $service->name)))->id;
+        $selectedServices = $preferredVehicleId && $preferredServiceId ? $services->where('id', $preferredServiceId) : $services->take(1);
         $branchId = $customer->branch_id ?: DB::table('branches')->where('organization_id',$customer->organization_id)->where('active',true)->value('id');
         $slots = $selectedServices->isEmpty() || !$branchId ? collect() : $availability->slots($customer->organization_id, $branchId, $selectedServices, null, 5);
-        return view('portal.show', compact('customer', 'token', 'services', 'slots', 'adminPreview'));
+        $openQuotes = $customer->quotes->whereIn('status', ['sent', 'viewed'])->whereNotNull('source_tire_set_id')->keyBy('source_tire_set_id');
+        $completedQuoteSetIds = $customer->quotes->where('status', 'accepted')->pluck('source_tire_set_id')->filter();
+        $lowTreadSets = $customer->vehicles->flatMap(fn ($vehicle) => $vehicle->tireSets->map(function ($set) use ($vehicle) {
+            $set->setRelation('vehicle', $vehicle);
+            return $set;
+        }))->filter(fn ($set) => $set->minimum_tread_depth !== null && (float) $set->minimum_tread_depth < 3 && filled($set->size) && ! $completedQuoteSetIds->contains($set->id));
+        $recommendations = $lowTreadSets->map(function ($set) use ($openQuotes) {
+            $quantity = $this->replacementQuantity($set);
+            return [
+                'set' => $set,
+                'quote' => $openQuotes->get($set->id),
+                'quantity' => $quantity,
+                'products' => $this->portalProductOptions($set, $quantity),
+            ];
+        })->filter(fn ($recommendation) => $recommendation['quote'] || $recommendation['products']->isNotEmpty())->values();
+        return view('portal.show', compact('customer', 'token', 'services', 'slots', 'adminPreview', 'recommendations', 'preferredVehicleId', 'preferredServiceId'));
     }
 
     public function availability(Request $request, string $token, BookingAvailabilityService $availability)
@@ -125,6 +144,99 @@ class CustomerPortalController extends Controller
             DB::table('audit_logs')->insert(['organization_id' => $item->organization_id, 'action' => 'portal.quote.'.$data['decision'], 'subject_type' => Quote::class, 'subject_id' => $item->id, 'ip_address' => $request->ip(), 'metadata' => json_encode(['customer_portal' => true, 'selected_quote_item_id' => $updates['selected_quote_item_id'] ?? null]), 'created_at' => now()]);
         });
         return back()->with('success', $data['decision'] === 'accepted' ? 'Tilbudet er godkjent. Verkstedet følger opp.' : 'Tilbudet er avslått.');
+    }
+
+    public function orderTires(Request $request, string $token, TireSet $tireSet, AcceptedQuoteWorkflow $workflow): RedirectResponse
+    {
+        $access = $this->access($token);
+        $data = $request->validate([
+            'tire_product_id' => ['required', 'integer'],
+            'terms_accepted' => ['required', 'accepted'],
+        ]);
+
+        $vehicle = Vehicle::where('customer_id', $access->customer_id)->findOrFail($tireSet->vehicle_id);
+        abort_unless($tireSet->organization_id === $access->organization_id && (float) $tireSet->minimum_tread_depth < 3 && filled($tireSet->size), 404);
+        $branchId = Customer::whereKey($access->customer_id)->value('branch_id')
+            ?: DB::table('branches')->where('organization_id', $access->organization_id)->where('active', true)->value('id');
+        abort_unless($branchId, 422, 'Verkstedet mangler en aktiv avdeling.');
+
+        DB::transaction(function () use ($access, $data, $tireSet, $vehicle, $branchId, $request, $workflow) {
+            $existing = Quote::where('customer_id', $access->customer_id)->where('source_tire_set_id', $tireSet->id)
+                ->whereIn('status', ['sent', 'viewed', 'accepted'])->lockForUpdate()->first();
+            abort_if($existing, 409, 'Dette hjulsettet har allerede et aktivt eller godkjent tilbud.');
+
+            $quantity = $this->replacementQuantity($tireSet);
+            $options = $this->portalProductOptions($tireSet, $quantity, true);
+            $selected = $options->firstWhere('id', (int) $data['tire_product_id']);
+            abort_unless($selected, 422, 'Dekket er ikke lenger tilgjengelig. Velg et annet alternativ.');
+
+            $total = $selected->price_cents * $quantity;
+            $quote = Quote::create([
+                'public_id' => (string) Str::uuid(), 'organization_id' => $access->organization_id,
+                'branch_id' => $branchId, 'customer_id' => $access->customer_id, 'vehicle_id' => $vehicle->id,
+                'source_tire_set_id' => $tireSet->id, 'reference' => 'KP-'.now()->format('ymd').'-'.strtoupper(Str::random(5)),
+                'status' => 'accepted', 'access_token_hash' => hash('sha256', Str::random(64)),
+                'subtotal_cents' => $total, 'vat_cents' => 0, 'total_cents' => $total,
+                'message' => 'Bestilt av kunden i kundeportalen.', 'responded_at' => now(),
+                'purchase_terms_accepted_at' => now(), 'purchase_terms_version' => '2026-08-09',
+                'response_ip' => $request->ip(), 'expires_at' => now()->addDays(30),
+            ]);
+            $labels = ['Det beste', 'Bra valg', 'Godt valg'];
+            foreach ($options as $position => $product) {
+                $item = $quote->items()->create([
+                    'tire_product_id' => $product->id, 'description' => trim("{$product->brand} {$product->model} {$product->size}"),
+                    'recommendation_label' => $labels[$position] ?? 'Godt valg', 'position' => $position + 1,
+                    'quantity' => $quantity, 'unit_price_cents' => $product->price_cents, 'line_total_cents' => $product->price_cents * $quantity,
+                ]);
+                if ($product->id === $selected->id) $quote->selected_quote_item_id = $item->id;
+            }
+            $quote->save();
+            DB::table('audit_logs')->insert([
+                'organization_id' => $access->organization_id, 'action' => 'portal.tires.ordered',
+                'subject_type' => Quote::class, 'subject_id' => $quote->id, 'ip_address' => $request->ip(),
+                'metadata' => json_encode(['customer_portal' => true, 'tire_set_id' => $tireSet->id, 'tire_product_id' => $selected->id]),
+                'created_at' => now(),
+            ]);
+            $workflow->create($quote->fresh('items'));
+        });
+
+        return redirect()->to(route('portal.show', $token).'#bestill')
+            ->with('success', 'Dekkene er reservert. Velg en ledig time for montering.')
+            ->with('portal_preferred_vehicle_id', $vehicle->id);
+    }
+
+    private function replacementQuantity(TireSet $tireSet): int
+    {
+        $tireSet->loadMissing('inspections.measurements');
+        $inspection = $tireSet->inspections->sortByDesc('inspected_at')->first();
+        if (! $inspection || $inspection->measurements->isEmpty()) return 4;
+        $mustReplace = $inspection->measurements->filter(fn ($wheel) =>
+            ($wheel->tread_depth_mm !== null && (float) $wheel->tread_depth_mm < 3) || $wheel->tire_damage
+        );
+        if ($mustReplace->isEmpty()) return 4;
+        if ($mustReplace->count() === 1) return 2;
+        if ($mustReplace->count() === 2) {
+            $axles = $mustReplace->map(fn ($wheel) => str_starts_with($wheel->position, 'front_') ? 'front' : 'rear')->unique();
+            return $axles->count() === 1 ? 2 : 4;
+        }
+        return 4;
+    }
+
+    private function portalProductOptions(TireSet $tireSet, int $quantity, bool $lock = false)
+    {
+        $query = TireProduct::where('organization_id', $tireSet->organization_id)->where('active', true)
+            ->where('stock_quantity', '>=', $quantity)->where('size', $tireSet->size)->where('season', $tireSet->season);
+        if ($lock) $query->lockForUpdate();
+        $manufacturer = Str::lower(trim((string) $tireSet->manufacturer));
+        $model = Str::lower(trim((string) $tireSet->model));
+        return $query->get()->sort(function ($left, $right) use ($manufacturer, $model) {
+            $score = fn ($product) => [
+                $manufacturer !== '' && Str::lower(trim($product->brand)) === $manufacturer ? 0 : 1,
+                $model !== '' && Str::lower(trim($product->model)) === $model ? 0 : 1,
+                -$product->price_cents,
+            ];
+            return $score($left) <=> $score($right);
+        })->take(3)->values();
     }
 
     private function access(string $token): CustomerPortalToken
