@@ -27,7 +27,7 @@ class WorkshopController extends Controller
     public function show(Request $request, WorkOrder $workOrder): View
     {
         $this->owns($request, $workOrder);
-        return view('work-orders.show', ['order' => $workOrder->load(['customer','vehicle.tireSets.inspections.measurements','booking','quote.items','tasks','reservations'])]);
+        return view('work-orders.show', ['order' => $workOrder->load(['customer','vehicle.tireSets.inspections.measurements','booking.services','quote.items','tasks','reservations'])]);
     }
 
     public function status(Request $request, WorkOrder $workOrder, AccountingExportService $accounting): RedirectResponse
