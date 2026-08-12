@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
  <meta name="theme-color" content="#0d2b20"><title>Betal og hent · {{ $organization->name }}</title>
- <link rel="stylesheet" href="{{ route('system.asset',['filename'=>'checkout.css']) }}?v=20260812-2">
+ <link rel="stylesheet" href="{{ asset('checkout.css') }}?v=20260812-3">
 </head>
 <body>
 <main class="checkout-shell">
@@ -27,5 +27,5 @@
   </div>
  </section>
 </main>
-<script>const registration=document.getElementById('registration_number');registration?.addEventListener('input',()=>{registration.value=registration.value.toUpperCase().replace(/[^A-ZÆØÅ0-9 ]/g,'')});</script>
+<script src="{{ asset('checkout.js') }}?v=20260812-1" defer></script>
 </body></html>
