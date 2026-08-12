@@ -3,7 +3,12 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="{{ asset('public/favicon.ico') }}" sizes="any">
     <meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ $title ?? 'DekkPilot' }}</title>
-    @php($safeAsset = fn (string $file) => \Illuminate\Support\Facades\Route::has('system.asset') ? route('system.asset', ['filename'=>$file]) : asset($file))
+    @php
+        $localAssetHost = in_array(request()->getHost(), ['localhost', '127.0.0.1', '::1'], true);
+        $safeAsset = fn (string $file) => $localAssetHost && \Illuminate\Support\Facades\Route::has('system.asset')
+            ? route('system.asset', ['filename'=>$file])
+            : asset($file);
+    @endphp
     @foreach(['app.css','operations.css','vehicle.css','admin.css','ui-fixes.css','inventory.css','inventory-table.css','inventory-density.css','tire-catalog.css','label-modal.css','workday.css','opportunities.css','quote-tools.css','booking-calendar.css','booking-actions.css','email-preview.css','dashboard.css','business-ranking.css','statistics.css','app-shell.css','ux-review.css','design-polish.css','floor-details.css','technician-mode.css','help.css','profile-menu-fix.css'] as $stylesheet)
     <link rel="stylesheet" href="{{ $safeAsset($stylesheet) }}?v=20260812-10">
     @endforeach
