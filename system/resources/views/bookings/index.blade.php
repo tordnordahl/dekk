@@ -3,6 +3,7 @@
 <link rel="stylesheet" href="{{ asset('booking-availability.css') }}?v=20260810-1">
 <link rel="stylesheet" href="{{ asset('booking-services.css') }}?v=20260810-1">
 <link rel="stylesheet" href="{{ asset('booking-overview.css') }}?v=20260810-1">
+<link rel="stylesheet" href="{{ asset('booking-identity.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-completion.css') }}?v=20260811-2">
 @php($canCreate=in_array(auth()->user()->role,['owner','admin','manager','customer_service'],true))
 <section class="booking-toolbar panel">
@@ -38,7 +39,7 @@
             @if($day!==$lastDay)<div class="day-divider"><strong>{{ $booking->starts_at->isToday()?'I dag':($booking->starts_at->isTomorrow()?'I morgen':$booking->starts_at->translatedFormat('l d. F')) }}</strong><span>{{ $booking->starts_at->format('d.m.Y') }}</span></div>@php($lastDay=$day)@endif
             <div class="booking-row {{ $booking->capacity_overbooked?'overbooked':'' }}">
                 <time>{{ $booking->starts_at->format('H:i') }}<small>{{ $booking->ends_at->format('H:i') }}</small></time>
-                <div><strong>{{ $booking->vehicle?->registration_number ?? $booking->customer->name }}</strong><span>{{ $booking->customer->name }} · {{ $booking->service_name }}</span></div>
+                <div class="booking-customer"><div class="booking-customer-line"><strong>{{ $booking->vehicle?->registration_number ?? 'Uten bil' }}</strong><span>{{ $booking->customer->name }}</span></div><span>{{ $booking->service_name }}</span></div>
                 <div><strong>{{ $booking->assignedUser?->name ?? 'Ikke tildelt' }}</strong><span>{{ $booking->workBay?->code ?? 'Bukk tildeles senere' }}</span></div>
                 @if($booking->capacity_overbooked)<span class="overbooked-badge">! Overbooket</span>@else<span class="confirmation-badge {{ $booking->confirmation_status==='confirmed'?'confirmed':'waiting' }}">{{ $booking->confirmation_status==='confirmed'?'Godkjent':'Venter' }}</span>@endif
                 <span class="status {{ $booking->status }}">{{ ['scheduled'=>'Venter','arrived'=>'Ankommet','in_progress'=>'Pågår','completed'=>'Fullført','cancelled'=>'Avbrutt','no_show'=>'Ikke møtt'][$booking->status] }}</span>

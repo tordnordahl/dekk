@@ -1,0 +1,24 @@
+.booking-row .booking-customer-line {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.booking-row .booking-customer-line strong {
+    flex: 0 0 auto;
+    font-size: inherit;
+    white-space: nowrap;
+}
+
+.booking-row .booking-customer-line span {
+    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    color: inherit;
+    font-size: inherit;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
