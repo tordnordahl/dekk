@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Booking extends Model
 {
     protected $guarded = [];
-    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'confirmation_requested_at'=>'datetime','confirmation_reminder_sent_at'=>'datetime','confirmation_deadline_at'=>'datetime','confirmation_responded_at'=>'datetime'];
+    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime', 'is_drop_in'=>'boolean', 'confirmation_requested_at'=>'datetime','confirmation_reminder_sent_at'=>'datetime','confirmation_deadline_at'=>'datetime','confirmation_responded_at'=>'datetime'];
     public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
     public function vehicle(): BelongsTo { return $this->belongsTo(Vehicle::class); }
     public function assignedUser(): BelongsTo { return $this->belongsTo(User::class, 'assigned_user_id'); }

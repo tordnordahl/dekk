@@ -480,7 +480,7 @@ class OperationsController extends Controller
     public function storeBooking(Request $request, CommunicationService $communication): RedirectResponse
     {
         $org = $request->user()->organization_id;
-        $data = $request->validate(['customer_id' => ['required', 'integer'], 'vehicle_ids' => ['required', 'array', 'min:1', 'max:20'], 'vehicle_ids.*' => ['required', 'integer', 'distinct'], 'work_bay_id' => ['nullable', 'integer'], 'assigned_user_id' => ['nullable', 'integer'], 'service_product_ids' => ['required','array','min:1','max:20'], 'service_product_ids.*' => ['required','integer','distinct'], 'starts_at' => ['required', 'date'], 'duration' => ['nullable', 'integer', 'between:5,1440'], 'notes' => ['nullable', 'string', 'max:4000']]);
+        $data = $request->validate(['customer_id' => ['required', 'integer'], 'vehicle_ids' => ['required', 'array', 'min:1', 'max:20'], 'vehicle_ids.*' => ['required', 'integer', 'distinct'], 'work_bay_id' => ['nullable', 'integer'], 'assigned_user_id' => ['nullable', 'integer'], 'service_product_ids' => ['required','array','min:1','max:20'], 'service_product_ids.*' => ['required','integer','distinct'], 'is_drop_in'=>['nullable','boolean'], 'starts_at' => ['nullable', 'required_unless:is_drop_in,1', 'date'], 'duration' => ['nullable', 'integer', 'between:5,1440'], 'notes' => ['nullable', 'string', 'max:4000']]);
         $customer = Customer::where('organization_id', $org)->findOrFail($data['customer_id']);
         $vehicles = Vehicle::where('organization_id', $org)->where('customer_id', $customer->id)->whereIn('id', $data['vehicle_ids'])->get();
         abort_unless($vehicles->count() === count($data['vehicle_ids']), 422);
@@ -491,17 +491,18 @@ class OperationsController extends Controller
         $serviceNames = $services->sortBy(fn ($item) => array_search($item->id, $data['service_product_ids']))->pluck('name')->join(' + ');
         $totalPrice = (int) $services->sum('fixed_price_cents');
         $totalDuration = max(5, (int) $services->sum('duration_minutes'));
-        $starts = now()->parse($data['starts_at']);
+        $dropIn = $request->boolean('is_drop_in');
+        $starts = $dropIn ? now() : now()->parse($data['starts_at']);
         $ends = $starts->copy()->addMinutes($totalDuration);
         if (!empty($data['work_bay_id'])) abort_unless(WorkBay::where('branch_id', $request->user()->branch_id)->whereKey($data['work_bay_id'])->exists(), 422);
         $activeBayCount=WorkBay::where('branch_id',$request->user()->branch_id)->where('active',true)->count();
         $simultaneous=Booking::where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->whereNotIn('status',['cancelled','no_show'])->where('starts_at','<',$ends)->where('ends_at','>',$starts)->count();
         $vehicleCount = $vehicles->count();
         $willOverbook=$activeBayCount>0&&($simultaneous+$vehicleCount)>$activeBayCount;
-        $bookings = DB::transaction(function () use ($vehicles, $data, $org, $request, $service, $services, $serviceNames, $totalPrice, $starts, $ends) {
-            return $vehicles->map(function ($vehicle) use ($data, $org, $request, $service, $services, $serviceNames, $totalPrice, $starts, $ends, $vehicles) {
-                $plain = Str::random(64);
-                $booking = Booking::create(['public_id' => (string) Str::uuid(), 'organization_id' => $org, 'branch_id' => $request->user()->branch_id, 'work_bay_id' => $vehicles->count() === 1 ? ($data['work_bay_id'] ?? null) : null, 'assigned_user_id' => $vehicles->count() === 1 ? ($data['assigned_user_id'] ?? null) : null, 'service_product_id'=>$service->id, 'customer_id' => $data['customer_id'], 'vehicle_id' => $vehicle->id, 'reference' => 'B-'.now()->format('ymd').'-'.strtoupper(Str::random(5)), 'service_name' => $serviceNames, 'agreed_price_cents'=>$totalPrice, 'starts_at' => $starts, 'ends_at' => $ends, 'notes' => $data['notes'] ?? null, 'confirmation_status'=>'pending','confirmation_token_hash'=>hash('sha256',$plain),'confirmation_requested_at'=>now()]);
+        $bookings = DB::transaction(function () use ($vehicles, $data, $org, $request, $service, $services, $serviceNames, $totalPrice, $starts, $ends, $dropIn) {
+            return $vehicles->map(function ($vehicle) use ($data, $org, $request, $service, $services, $serviceNames, $totalPrice, $starts, $ends, $vehicles, $dropIn) {
+                $plain = $dropIn ? null : Str::random(64);
+                $booking = Booking::create(['public_id' => (string) Str::uuid(), 'organization_id' => $org, 'branch_id' => $request->user()->branch_id, 'work_bay_id' => $vehicles->count() === 1 ? ($data['work_bay_id'] ?? null) : null, 'assigned_user_id' => $vehicles->count() === 1 ? ($data['assigned_user_id'] ?? null) : null, 'service_product_id'=>$service->id, 'customer_id' => $data['customer_id'], 'vehicle_id' => $vehicle->id, 'reference' => 'B-'.now()->format('ymd').'-'.strtoupper(Str::random(5)), 'service_name' => $serviceNames, 'agreed_price_cents'=>$totalPrice, 'starts_at' => $starts, 'ends_at' => $ends, 'is_drop_in'=>$dropIn, 'status'=>$dropIn?'arrived':'scheduled', 'notes' => $data['notes'] ?? null, 'confirmation_status'=>$dropIn?'not_required':'pending','confirmation_token_hash'=>$plain?hash('sha256',$plain):null,'confirmation_requested_at'=>$dropIn?null:now()]);
                 foreach ($services as $position => $item) $booking->services()->attach($item->id, ['service_name'=>$item->name,'price_cents'=>$item->fixed_price_cents,'duration_minutes'=>$item->duration_minutes,'position'=>$position]);
                 $booking->setAttribute('plain_confirmation_token', $plain);
                 return $booking;
@@ -509,12 +510,13 @@ class OperationsController extends Controller
         });
         foreach ($bookings as $booking) {
             $registration = $vehicles->firstWhere('id', $booking->vehicle_id)?->registration_number;
+            if ($dropIn) continue;
             $body = "Hei {$customer->name}. Vi holder av time {$starts->format('d.m.Y H:i')} for {$serviceNames} ({$registration}) til ".number_format($totalPrice/100,2,',',' ')." kr. Bekreft eller avkreft her:\n".route('booking.confirm.show',$booking->plain_confirmation_token);
             if ($customer->email) $communication->queue($org,$customer,'email',$customer->email,'Bekreft verkstedtimen',$body,'transactional',$booking->id,$request->user()->id);
             $smsSettings = ServiceSetting::where('branch_id', $request->user()->branch_id)->first();
             if ($customer->phone && ($smsSettings?->sms_enabled ?? false) && ($smsSettings?->sms_booking_confirmation_enabled ?? true)) $communication->queue($org,$customer,'sms',$customer->phone,null,$body,'transactional',$booking->id,$request->user()->id);
         }
-        $response=back()->with('success',$vehicleCount === 1 ? 'Bookingen er opprettet.' : $vehicleCount.' bookinger er opprettet. Ressurser kan tildeles per bil i etterkant.');
+        $response=back()->with('success',$dropIn ? ($vehicleCount === 1 ? 'Drop-in-kunden er lagt til i dagens kø.' : $vehicleCount.' drop-in-jobber er lagt til i dagens kø.') : ($vehicleCount === 1 ? 'Bookingen er opprettet.' : $vehicleCount.' bookinger er opprettet. Ressurser kan tildeles per bil i etterkant.'));
         return $willOverbook?$response->with('warning','Bookingene ble tillatt, men tidspunktet er overbooket: '.($simultaneous+$vehicleCount).' samtidige bookinger og '.$activeBayCount.' arbeidsbukker.'):$response;
     }
 
