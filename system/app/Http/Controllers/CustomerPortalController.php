@@ -68,7 +68,7 @@ class CustomerPortalController extends Controller
         $lowTreadSets = $customer->vehicles->flatMap(fn ($vehicle) => $vehicle->tireSets->map(function ($set) use ($vehicle) {
             $set->setRelation('vehicle', $vehicle);
             return $set;
-        }))->filter(fn ($set) => $set->minimum_tread_depth !== null && (float) $set->minimum_tread_depth < 3 && filled($set->size) && ! $completedQuoteSetIds->contains($set->id));
+        }))->filter(fn ($set) => in_array('age', $set->replacement_reasons, true) || ($set->minimum_tread_depth !== null && (float) $set->minimum_tread_depth < 3) ? filled($set->size) : false && ! $completedQuoteSetIds->contains($set->id));
         $recommendations = $lowTreadSets->map(function ($set) use ($openQuotes) {
             $quantity = $this->replacementQuantity($set);
             return [

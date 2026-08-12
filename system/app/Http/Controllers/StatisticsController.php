@@ -34,7 +34,7 @@ class StatisticsController extends Controller
 
         $sentPipelineCents=(int)Quote::where('organization_id',$org)->whereIn('status',['sent','viewed'])->sum('total_cents');
         $quotedSetIds=Quote::where('organization_id',$org)->whereNotNull('source_tire_set_id')->whereIn('status',['draft','sent','viewed','accepted'])->pluck('source_tire_set_id');
-        $unsentSets=TireSet::where('organization_id',$org)->where('minimum_tread_depth','<',3)->whereNotNull('size')->whereNotIn('id',$quotedSetIds)->whereHas('vehicle.customer',fn($query)=>$query->whereNotNull('email'))->get(['id','size','season','quantity']);
+        $unsentSets=TireSet::where('organization_id',$org)->needsReplacement()->whereNotNull('size')->whereNotIn('id',$quotedSetIds)->whereHas('vehicle.customer',fn($query)=>$query->whereNotNull('email'))->get(['id','size','season','quantity']);
         $keys=$unsentSets->map(fn($set)=>$set->size.'|'.$set->season)->unique();
         $prices=TireProduct::where('organization_id',$org)->where('active',true)->where('stock_quantity','>=',4)->whereIn('size',$unsentSets->pluck('size')->unique())->get()->filter(fn($product)=>$keys->contains($product->size.'|'.$product->season))->groupBy(fn($product)=>$product->size.'|'.$product->season)->map->max('price_cents');
         $unsentOpportunities=$unsentSets->filter(fn($set)=>$prices->has($set->size.'|'.$set->season));
