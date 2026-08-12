@@ -1,6 +1,6 @@
 <x-layouts.app title="Krever handling · DekkPilot" heading="Krever handling">
-<link rel="stylesheet" href="{{ asset('action-center.css') }}?v=20260812-2">
-<link rel="stylesheet" href="{{ asset('action-workflow.css') }}?v=20260812-1">
+<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'action-center.css']) }}?v=20260812-3">
+<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'action-workflow.css']) }}?v=20260812-2">
 @php
     $otherCount = $items->count()
         - (int) ($counts['Hjulsett'] ?? 0)
@@ -31,5 +31,5 @@ $tirePayload=$tireSets->map(function($set){$last=$set->inspections->first();$mea
 
 <dialog class="camera-modal" data-action-camera-modal><div class="camera-head"><div><p class="eyebrow">SKANN HJULETIKETT</p><h2>Hold koden foran kameraet</h2></div><button type="button" data-action-camera-close>×</button></div><video playsinline data-action-camera-video></video><p data-action-camera-status>Kameraet starter når du trykker.</p><button class="button full" type="button" data-action-camera-start>Start kamera</button></dialog>
 <dialog class="label-modal" data-action-label-modal><div class="label-modal-head"><div><p class="eyebrow">UTSKRIFTSKLAR</p><h2>Forhåndsvis etikett</h2></div><button type="button" data-action-label-close>×</button></div><div class="label-frame-wrap"><iframe title="Forhåndsvisning av etikett" data-action-label-frame></iframe></div><div class="label-modal-actions"><button class="button ghost" type="button" data-action-label-close>Tilbake</button><button class="button" type="button" data-action-label-print>▤ Skriv ut etikett</button></div></dialog>
-<script defer src="{{ asset('action-center.js') }}?v=20260812-2"></script>
+<script defer src="{{ route('system.asset', ['filename' => 'action-center.js']) }}?v=20260812-3"></script>
 </x-layouts.app>
