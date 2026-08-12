@@ -3,11 +3,9 @@
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="{{ asset('public/favicon.ico') }}" sizes="any">
     <meta name="csrf-token" content="{{ csrf_token() }}"><title>{{ $title ?? 'DekkPilot' }}</title>
-    <link rel="stylesheet" href="{{ asset('app.css') }}"><link rel="stylesheet" href="{{ asset('operations.css') }}"><link rel="stylesheet" href="{{ asset('vehicle.css') }}"><link rel="stylesheet" href="{{ asset('admin.css') }}"><link rel="stylesheet" href="{{ asset('ui-fixes.css') }}"><link rel="stylesheet" href="{{ asset('inventory.css') }}"><link rel="stylesheet" href="{{ asset('inventory-table.css') }}"><link rel="stylesheet" href="{{ asset('inventory-density.css') }}"><link rel="stylesheet" href="{{ asset('tire-catalog.css') }}"><link rel="stylesheet" href="{{ asset('label-modal.css') }}"><link rel="stylesheet" href="{{ asset('workday.css') }}"><link rel="stylesheet" href="{{ asset('opportunities.css') }}"><link rel="stylesheet" href="{{ asset('quote-tools.css') }}"><link rel="stylesheet" href="{{ asset('booking-calendar.css') }}?v=20260812-2"><link rel="stylesheet" href="{{ asset('booking-actions.css') }}"><link rel="stylesheet" href="{{ asset('email-preview.css') }}"><link rel="stylesheet" href="{{ asset('dashboard.css') }}"><link rel="stylesheet" href="{{ asset('business-ranking.css') }}"><link rel="stylesheet" href="{{ asset('statistics.css') }}"><link rel="stylesheet" href="{{ asset('app-shell.css') }}?v=20260811-1"><link rel="stylesheet" href="{{ asset('ux-review.css') }}"><link rel="stylesheet" href="{{ asset('design-polish.css') }}?v=20260810-1">
-    <link rel="stylesheet" href="{{ asset('floor-details.css') }}?v=20260810-1">
-    <link rel="stylesheet" href="{{ asset('technician-mode.css') }}?v=20260811-1">
-    <link rel="stylesheet" href="{{ asset('help.css') }}?v=20260812-8">
-    <link rel="stylesheet" href="{{ in_array(request()->getHost(), ['localhost','127.0.0.1','::1'], true) ? route('system.asset', ['filename'=>'profile-menu-fix.css']) : asset('profile-menu-fix.css') }}?v=20260812-1">
+    @foreach(['app.css','operations.css','vehicle.css','admin.css','ui-fixes.css','inventory.css','inventory-table.css','inventory-density.css','tire-catalog.css','label-modal.css','workday.css','opportunities.css','quote-tools.css','booking-calendar.css','booking-actions.css','email-preview.css','dashboard.css','business-ranking.css','statistics.css','app-shell.css','ux-review.css','design-polish.css','floor-details.css','technician-mode.css','help.css','profile-menu-fix.css'] as $stylesheet)
+    <link rel="stylesheet" href="{{ route('system.asset', ['filename'=>$stylesheet]) }}?v=20260812-9">
+    @endforeach
 </head>
 <body class="{{ session('ui_mode') === 'technician' ? 'ui-mode-technician' : 'ui-mode-portal' }}"><a class="screen-reader-only" href="#main-content">Hopp til hovedinnhold</a>
 @if(session('demo_read_only'))<div class="impersonation-bar" style="position:sticky;top:0;z-index:1000"><span>👁 <strong>Skrivebeskyttet demo</strong> – du kan se hele systemet, men ingen data kan endres eller sendes.</span></div>@endif
@@ -70,11 +68,8 @@
     </main>
 </div>
 @if(session('ui_mode') === 'technician')<nav class="technician-mobile-nav" aria-label="Teknikermeny"><a class="{{ request()->routeIs('workday*')?'active':'' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>I dag</span></a><a class="{{ request()->routeIs('warehouse.map')?'active':'' }}" href="{{ route('warehouse.map') }}"><x-icon name="warehouse"/><span>Kart</span></a><a class="{{ request()->routeIs('inventory*')?'active':'' }}" href="{{ route('inventory') }}"><x-icon name="tires"/><span>Hjul</span></a><a class="{{ request()->routeIs('actions')?'active':'' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Avvik</span></a><a href="{{ route('ui-mode.choose') }}"><x-icon name="settings"/><span>Bytt</span></a></nav>@endif
-<script defer src="{{ asset('app-shell.js') }}?v=20260811-1"></script>
-<script defer src="{{ in_array(request()->getHost(), ['localhost','127.0.0.1','::1'], true) ? route('system.asset', ['filename'=>'profile-menu.js']) : asset('profile-menu.js') }}?v=20260812-1"></script>
-<script defer src="{{ asset('email-preview.js') }}"></script>
-<script defer src="{{ asset('booking-capacity.js') }}"></script>
-<script defer src="{{ asset('quote-preview.js') }}"></script>
-<script defer src="{{ asset('ux-review.js') }}"></script>
+@foreach(['app-shell.js','profile-menu.js','email-preview.js','booking-capacity.js','quote-preview.js','ux-review.js'] as $script)
+<script defer src="{{ route('system.asset', ['filename'=>$script]) }}?v=20260812-9"></script>
+@endforeach
 </body>
 </html>
