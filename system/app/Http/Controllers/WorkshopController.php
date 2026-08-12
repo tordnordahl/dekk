@@ -48,9 +48,23 @@ class WorkshopController extends Controller
     public function task(Request $request, WorkOrder $workOrder, int $task): RedirectResponse
     {
         $this->owns($request, $workOrder);
-        $item = $workOrder->tasks()->findOrFail($task); $done = !$item->completed;
-        $item->update(['completed'=>$done,'completed_by'=>$done?$request->user()->id:null,'completed_at'=>$done?now():null]);
-        return back()->with('success', $done ? 'Kontrollpunkt fullført.' : 'Kontrollpunkt åpnet igjen.');
+        $item = $workOrder->tasks()->findOrFail($task);
+        $data = $request->validate([
+            'completed' => ['required', 'boolean'],
+            'result' => ['nullable', 'required_if:completed,1', 'in:ok,attention,deviation,not_applicable'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $done = (bool) $data['completed'];
+        if ($done && ($data['result'] ?? null) === 'deviation' && blank($data['notes'] ?? null)) {
+            return back()->withErrors(['notes' => 'Beskriv avviket før kontrollpunktet fullføres.']);
+        }
+        $resultLabels = ['ok'=>'Utført og godkjent','attention'=>'Utført – bør følges opp','deviation'=>'Avvik registrert','not_applicable'=>'Ikke relevant'];
+        $notes = $done
+            ? '['.($resultLabels[$data['result']] ?? 'Utført').']'.(filled($data['notes'] ?? null) ? "\n".trim($data['notes']) : '')
+            : (filled($data['notes'] ?? null) ? trim($data['notes']) : $item->notes);
+        $item->update(['completed'=>$done,'notes'=>$notes,'completed_by'=>$done?$request->user()->id:null,'completed_at'=>$done?now():null]);
+        $this->audit($request, $done ? 'work_order.task_completed' : 'work_order.task_reopened', $workOrder);
+        return back()->with('success', $done ? 'Kontrollpunkt og informasjon er lagret.' : 'Kontrollpunktet er åpnet igjen.');
     }
 
     public function inspection(Request $request, TireSet $tireSet): View

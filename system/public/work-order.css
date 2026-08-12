@@ -1,0 +1,13 @@
+.work-task-list{display:grid;margin-top:18px;border-top:1px solid var(--line)}
+.work-task{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:15px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.work-task:hover{background:#f7faf8}
+.work-task-check{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#edf2ef;color:#728078;font-size:18px;font-weight:900}
+.work-task.is-complete .work-task-check{background:#dff4e9;color:#176541}
+.work-task>span:nth-child(2){display:grid;gap:2px}.work-task small{color:var(--muted);font-style:normal}.work-task em{color:#52645b;font-size:11px;font-style:normal}.work-task>b{color:var(--green);font-size:12px;white-space:nowrap}
+.work-task-dialog{width:min(590px,calc(100vw - 24px));padding:0;border:0;border-radius:20px;box-shadow:0 28px 80px rgba(7,25,16,.28);color:var(--ink)}
+.work-task-dialog::backdrop{background:rgba(7,19,14,.7);backdrop-filter:blur(3px)}
+.work-task-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line)}
+.work-task-dialog-head h2{margin:3px 0 0}.work-task-dialog-head>button{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:#edf2ef;color:var(--ink);font-size:25px;cursor:pointer}
+.work-task-dialog-body{display:grid;gap:16px;padding:22px}.work-task-dialog-body label{font-size:13px}.work-task-dialog-body textarea{resize:vertical}.work-task-dialog-body small{color:var(--muted);font-weight:500}
+.work-task-dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding:16px 22px;border-top:1px solid var(--line);background:#fafcfb}
+@media(max-width:650px){.work-task{grid-template-columns:36px minmax(0,1fr)}.work-task>b{grid-column:2}.work-task-dialog{width:100%;max-width:none;margin:0;align-self:end;border-radius:20px 20px 0 0}.work-task-dialog-actions{display:grid}.work-task-dialog-actions .button{width:100%;min-height:48px}}
