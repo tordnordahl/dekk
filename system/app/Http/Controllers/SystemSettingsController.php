@@ -55,6 +55,24 @@ class SystemSettingsController extends Controller
         return view('superadmin.server-mail', ['serverMail' => $mail->serverSettings()]);
     }
 
+    public function phoneDirectory(\App\Services\PhoneDirectory1881Service $directory): View
+    {
+        return view('superadmin.phone-directory', ['directory' => $directory->settings()]);
+    }
+
+    public function savePhoneDirectory(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->is_super_admin,403);
+        $data=$request->validate(['enabled'=>['nullable','boolean'],'endpoint'=>['required','url:http,https','max:1000'],'auth_header'=>['required','regex:/^[A-Za-z0-9-]{1,80}$/'],'api_key'=>['nullable','string','max:2000']]);
+        $existing=app(\App\Services\PhoneDirectory1881Service::class)->settings();
+        if(blank($data['api_key']??null))$data['api_key']=$existing['api_key']??null;
+        $data['enabled']=$request->boolean('enabled');
+        if($data['enabled']&&blank($data['api_key']))return back()->withErrors(['api_key'=>'API-nøkkel må legges inn før 1881 kan aktiveres.'])->withInput();
+        PlatformSetting::updateOrCreate(['key'=>'directory.1881'],['encrypted_value'=>Crypt::encryptString(json_encode($data,JSON_THROW_ON_ERROR)),'updated_by'=>$request->user()->id]);
+        $this->audit($request,'platform.1881.updated',['enabled'=>$data['enabled'],'endpoint_host'=>parse_url($data['endpoint'],PHP_URL_HOST)]);
+        return back()->with('success',$data['enabled']?'1881-oppslag er aktivert for kunderegistrering.':'1881-oppslag er slått av og skjult for alle virksomheter.');
+    }
+
     public function saveTenantMail(Request $request): RedirectResponse
     {
         $data = $request->validate(['from_address'=>['required','email','max:255']]);

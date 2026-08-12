@@ -1,7 +1,9 @@
 <x-layouts.app title="{{ $customer->name }} · DekkPilot" heading="{{ $customer->name }}">
+@php($phoneDirectoryEnabled = app(\App\Services\PhoneDirectory1881Service::class)->enabled())
 <link rel="stylesheet" href="{{ asset('vehicle-ownership.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('customer-profile.css') }}?v=20260811-3">
 <link rel="stylesheet" href="{{ asset('customer-dialog.css') }}?v=20260811-1">
+@if($phoneDirectoryEnabled)<link rel="stylesheet" href="{{ asset('phone-directory.css') }}?v=20260812-1">@endif
 <style>.customer-delete{margin-top:18px;border:1px solid #efd2cd;border-radius:14px;background:#fffafa}.customer-delete>summary{padding:16px 18px;color:#923d34;font-weight:850;cursor:pointer}.customer-delete-body{padding:0 18px 18px}.customer-delete-body p{color:#6f5753}.customer-delete-body .button.danger{background:#a83e32;color:#fff}.customer-delete-body .button.danger:hover{background:#872f26}</style>
 <div class="admin-subnav"><a href="{{ route('customers') }}">← Kunder</a><a href="#vehicles">Biler og hjul</a><a href="#bookings">Timer</a><a href="#quotes">Tilbud</a><a href="#history">Historikk</a></div>
 <div class="quote-actions"><button type="button" class="button ghost" data-customer-edit-open>Rediger kunde og adresse</button></div>
@@ -19,7 +21,7 @@
  <form method="post" action="{{ route('customers.update',$customer) }}" class="stack customer-dialog-body">@csrf @method('PUT')
   <label>Kundetype<select name="type"><option value="private" @selected(old('type',$customer->type)==='private')>Privatkunde</option><option value="business" @selected(old('type',$customer->type)==='business')>Bedrift</option></select></label>
   <label>Navn<input name="name" value="{{ old('name',$customer->name) }}" required maxlength="255"></label>
-  <div class="fields"><label>Telefon<input name="phone" value="{{ old('phone',$customer->phone) }}"></label><label>E-post<input type="email" name="email" value="{{ old('email',$customer->email) }}"></label></div>
+  <div class="fields"><label>Telefon<input name="phone" value="{{ old('phone',$customer->phone) }}">@if($phoneDirectoryEnabled)<button type="button" class="directory-lookup-button" data-directory-lookup data-directory-url="{{ route('phone-directory.lookup') }}">Hent navn og adresse fra 1881</button><small data-directory-status></small>@endif</label><label>E-post<input type="email" name="email" value="{{ old('email',$customer->email) }}"></label></div>
   <label>Organisasjonsnummer<input name="organization_number" value="{{ old('organization_number',$customer->organization_number) }}"></label>
   <label>Adresse <small>(valgfritt)</small><input name="address" value="{{ old('address',$customer->address) }}" autocomplete="street-address"></label>
   <div class="fields" data-postal-lookup data-lookup-url="{{ route('postal-code.lookup','POSTAL_CODE') }}"><label>Postnummer<input name="postal_code" value="{{ old('postal_code',$customer->postal_code) }}" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" required data-postal-code>@error('postal_code')<small class="field-error">{{ $message }}</small>@enderror</label><label>Poststed<input name="city" value="{{ old('city',$customer->city) }}" readonly tabindex="-1" data-postal-city><small data-postal-status>Fylles ut fra postnummeret.</small></label></div>
@@ -42,4 +44,5 @@
 <script defer src="{{ asset('vehicle-ownership.js') }}?v=20260811-3"></script>
 <script defer src="{{ asset('customer-dialog.js') }}?v=20260812-2"></script>
 <script defer src="{{ asset('customer-edit.js') }}?v=20260812-1"></script>
+@if($phoneDirectoryEnabled)<script src="{{ asset('phone-directory.js') }}?v=20260812-1" defer></script>@endif
 </x-layouts.app>

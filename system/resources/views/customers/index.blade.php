@@ -1,8 +1,10 @@
 <x-layouts.app title="Kunder · DekkPilot" heading="Kunderegister">
 @php($localAssetHost = in_array(request()->getHost(), ['localhost','127.0.0.1','::1'], true))
+@php($phoneDirectoryEnabled = app(\App\Services\PhoneDirectory1881Service::class)->enabled())
 <link rel="stylesheet" href="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-dialog.css']) : asset('customer-dialog.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-profile.css']) : asset('customer-profile.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-list.css']) : asset('customer-list.css') }}?v=20260812-1">
+@if($phoneDirectoryEnabled)<link rel="stylesheet" href="{{ asset('phone-directory.css') }}?v=20260812-1">@endif
 <style>.customer-add-vehicle{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border:1px solid #cfe1d7;border-radius:9px;background:#f3f8f5;color:#1d6543;font-size:11px;font-weight:850;white-space:nowrap}.customer-add-vehicle:hover{border-color:#8dbba3;background:#e6f3eb}</style>
 <section class="customer-workspace">
 <article class="panel">
@@ -28,7 +30,7 @@
     <form method="post" action="{{ route('customers.store') }}" class="stack customer-dialog-body">@csrf
         <label>Kundetype<select name="type"><option value="private" @selected(old('type','private')==='private')>Privatkunde</option><option value="business" @selected(old('type')==='business')>Bedrift</option></select></label>
         <label>Navn<input name="name" value="{{ old('name') }}" required maxlength="255" autofocus>@error('name')<small class="field-error">{{ $message }}</small>@enderror</label>
-        <div class="fields"><label>Telefon<input name="phone" value="{{ old('phone') }}"></label><label>E-post<input type="email" name="email" value="{{ old('email') }}">@error('email')<small class="field-error">{{ $message }}</small>@enderror</label></div>
+        <div class="fields"><label>Telefon<input name="phone" value="{{ old('phone') }}">@if($phoneDirectoryEnabled)<button type="button" class="directory-lookup-button" data-directory-lookup data-directory-url="{{ route('phone-directory.lookup') }}">Hent navn og adresse fra 1881</button><small data-directory-status></small>@endif</label><label>E-post<input type="email" name="email" value="{{ old('email') }}">@error('email')<small class="field-error">{{ $message }}</small>@enderror</label></div>
         <label>Adresse <small>(valgfritt)</small><input name="address" value="{{ old('address') }}" autocomplete="street-address"></label>
         <div class="fields" data-postal-lookup data-lookup-url="{{ route('postal-code.lookup','POSTAL_CODE') }}"><label>Postnummer<input name="postal_code" value="{{ old('postal_code') }}" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" placeholder="0000" required data-postal-code>@error('postal_code')<small class="field-error">{{ $message }}</small>@enderror</label><label>Poststed<input name="city" value="{{ old('city') }}" readonly tabindex="-1" placeholder="Fylles ut automatisk" data-postal-city><small data-postal-status>Fylles ut fra postnummeret.</small></label></div>
         <label>Organisasjonsnummer<input name="organization_number" value="{{ old('organization_number') }}"></label>
@@ -54,4 +56,5 @@
 </dialog>
 @endif
 <script src="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-dialog.js']) : asset('customer-dialog.js') }}?v=20260812-2" defer></script>
+@if($phoneDirectoryEnabled)<script src="{{ asset('phone-directory.js') }}?v=20260812-1" defer></script>@endif
 </x-layouts.app>
