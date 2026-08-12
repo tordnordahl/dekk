@@ -4,7 +4,7 @@
         <div class="quote-overview-copy">
             <p class="eyebrow">SALG UTEN REGNEARK</p>
             <h2>Følg opp dekk som bør byttes</h2>
-            <p>DekkPilot finner lav mønsterdybde, matcher riktig dimensjon mot lageret og lager gode alternativer. Du vurderer alltid forslaget før kunden kontaktes.</p>
+            <p>DekkPilot finner lav mønsterdybde og dekk som bør byttes på grunn av alder, matcher riktig dimensjon mot lageret og lager gode alternativer. Du vurderer alltid forslaget før kunden kontaktes.</p>
         </div>
         <div class="quote-overview-flow" aria-label="Arbeidsflyt for tilbud">
             <span><b>1</b>Kontroller behov</span><i>→</i><span><b>2</b>Velg dekk</span><i>→</i><span><b>3</b>Send til kunden</span>
@@ -28,13 +28,13 @@
                 @forelse($suggestions as $set)
                     @php($options=$matches->get($set->size.'|'.$set->season,collect())->take(3))
                     <a class="opportunity-row" href="{{ route('quotes.suggestion',$set) }}">
-                        <span class="tread-alert">{{ $set->minimum_tread_depth }}<small>mm</small></span>
+                        <span class="tread-alert">{{ $set->replacement_reasons===['age'] ? $set->age_years : $set->minimum_tread_depth }}<small>{{ $set->replacement_reasons===['age'] ? 'år' : 'mm' }}</small></span>
                         <div class="opportunity-customer"><strong>{{ $set->vehicle->registration_number }}</strong><span>{{ $set->vehicle->customer->name }}</span><small>{{ $set->size }} · {{ $set->season==='winter'?'Vinterdekk':'Sommerdekk' }} · {{ $set->storageLocation?->code ?? 'Mottak' }}</small></div>
                         <div class="match-count"><strong>{{ $options->count() }} treff på lager</strong><span>@if($options->isNotEmpty())Fra {{ number_format($options->min('price_cents')*4/100,0,',',' ') }} kr for 4 @endif</span></div>
                         <span class="opportunity-action">Vurder <b>→</b></span>
                     </a>
                 @empty
-                    <div class="quote-empty"><span>✓</span><div><strong>Alt er vurdert</strong><p>Nye forslag vises her når et hjulsett måles under 3 mm og du har dekk som passer på lager.</p></div></div>
+                    <div class="quote-empty"><span>✓</span><div><strong>Alt er vurdert</strong><p>Nye forslag vises når et hjulsett bør byttes på grunn av mønsterdybde eller alder og du har dekk som passer på lager.</p></div></div>
                 @endforelse
             </div>
             {{ $suggestions->links() }}
