@@ -32,3 +32,43 @@
 .booking-row>.status{grid-column:3}
 }
 
+/* Timebokvisning og klinisk kalender */
+.booking-view-switch{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border:1px solid #dfe6e2;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(20,55,43,.05)}
+.booking-view-switch a{padding:9px 15px;border-radius:9px;color:#5d6f66;font-size:13px;font-weight:800;white-space:nowrap}
+.booking-view-switch a:hover{background:#f0f6f3;color:#173d30}
+.booking-view-switch a.active{background:#173d30;color:#fff}
+.booking-day-nav{display:flex;align-items:center;gap:4px;margin-left:4px}
+.booking-day-nav a{display:flex;width:36px;min-height:36px;align-items:center;justify-content:center;border:1px solid #d7e1dc;border-radius:9px;background:#fff;color:#173d30;font-size:17px;font-weight:900}
+.booking-day-nav a:hover{border-color:#277557;background:#eef7f2}
+.booking-day-nav span{min-width:47px;color:#566a61;font-size:11px;font-weight:850;text-align:center}
+.clinical-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:14px}
+.clinical-head h2{margin:2px 0;font-size:24px}
+.clinical-head p{margin:3px 0 0;color:#6c7b74;font-size:13px}
+.clinical-date-nav,.clinical-split{display:flex;align-items:center;gap:6px}
+.clinical-date-nav a,.clinical-split a{display:flex;min-height:38px;align-items:center;justify-content:center;padding:7px 13px;border:1px solid #d8e2dd;border-radius:10px;background:#fff;color:#315347;font-size:12px;font-weight:850}
+.clinical-date-nav a:first-child,.clinical-date-nav a:last-child{width:38px;padding:0;font-size:17px}
+.clinical-date-nav a:hover,.clinical-split a:hover{border-color:#8db6a4;background:#eef7f2}
+.clinical-split{margin-bottom:14px}
+.clinical-split a.active{border-color:#173d30;background:#173d30;color:#fff}
+.clinical-split span{margin-right:4px;font-size:10px}
+.clinical-scroll{max-height:65vh;overflow:auto;border:1px solid #d8e2dd;border-radius:14px;background:#fff}
+.clinical-calendar{display:grid;grid-template-columns:62px repeat(var(--lanes),minmax(220px,1fr));min-width:100%}
+.clinical-corner,.clinical-lane-head{position:sticky;top:0;z-index:3;min-height:42px;padding:12px 10px;border-bottom:1px solid #cbd9d2;background:#eef4f1;color:#4e645a;font-size:10px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.clinical-corner{left:0;z-index:4}
+.clinical-time{position:sticky;left:0;z-index:2;display:block;min-height:46px;padding:14px 8px;border-right:1px solid #dce5e0;border-bottom:1px solid #e8eeeb;background:#f8faf9;color:#41584d;font-size:12px;font-weight:900}
+.clinical-cell{display:grid;min-height:46px;align-content:center;gap:4px;padding:4px 6px;overflow:hidden;border-right:1px solid #edf1ef;border-bottom:1px solid #e8eeeb;background:#fff}
+.clinical-cell.free:hover{background:#f6faf8}
+.clinical-cell.overbooked{background:#fff0ed}
+.clinical-booking{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:1px 7px;min-width:0;padding:6px 8px;border-left:3px solid #267955;border-radius:7px;background:#e3f3ea;color:#153c2b}
+.clinical-booking:hover{background:#d6eddf}
+.clinical-booking strong{font-size:12px}
+.clinical-booking span,.clinical-booking small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clinical-booking span{color:#3d5a4d;font-size:11px}
+.clinical-booking small{grid-column:1/-1;color:#61756b;font-size:9px}
+.clinical-free{justify-self:end;padding:5px 8px;border-radius:7px;color:#287251;font-size:10px;font-weight:850;white-space:nowrap}
+.clinical-free:hover{background:#e5f4eb}
+.clinical-continuation{margin:auto;color:#9aa9a2;font-size:9px;text-transform:uppercase}
+.clinical-dropins{display:flex;align-items:center;gap:8px;margin-top:10px}
+.clinical-dropins:empty{display:none}
+.clinical-dropins strong,.clinical-dropins span{padding:7px 10px;border-radius:8px;background:#f0f4f2;font-size:11px}
+@media(max-width:700px){.booking-view-switch{display:flex;width:100%;overflow-x:auto}.booking-view-switch a{flex:1 0 auto;text-align:center}.booking-day-nav{width:100%;margin:2px 0 0}.clinical-head{align-items:flex-start;flex-direction:column}.clinical-date-nav{width:100%}.clinical-date-nav a:nth-child(2){flex:1}.clinical-split{overflow-x:auto}.clinical-split a{flex:0 0 auto}.clinical-calendar{grid-template-columns:52px repeat(var(--lanes),minmax(180px,1fr))}}

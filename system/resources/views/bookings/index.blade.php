@@ -2,8 +2,6 @@
 <link rel="stylesheet" href="{{ asset('booking-picker.css') }}?v=20260810-2">
 <link rel="stylesheet" href="{{ asset('booking-availability.css') }}?v=20260810-1">
 <link rel="stylesheet" href="{{ asset('booking-services.css') }}?v=20260810-1">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'booking-overview.css']) }}?v=20260812-3">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'booking-day-nav.css']) }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-identity.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-completion.css') }}?v=20260811-2">
 <link rel="stylesheet" href="{{ asset('booking-receipts.css') }}?v=20260812-1">
