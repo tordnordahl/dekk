@@ -3,4 +3,5 @@
 .git-file-select-head .button{padding:7px 10px;font-size:11px}
 .git-file-select label{display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #e7ece9;cursor:pointer}
 .git-file-select label:last-child{border:0}.git-file-select input{width:auto}.git-file-select code{overflow-wrap:anywhere;font-size:11px;color:#31483d}
-@media(max-width:650px){.git-file-select{max-height:360px}.git-file-select-head{align-items:flex-start;flex-direction:column}}
+.git-check-actions{display:flex;align-items:center;gap:10px;margin:18px 0}.git-check-actions form{margin:0}.git-check-actions .button{min-height:44px}.git-check-actions form:last-child .button{box-shadow:0 10px 24px rgba(23,112,71,.16)}
+@media(max-width:650px){.git-file-select{max-height:360px}.git-file-select-head{align-items:flex-start;flex-direction:column}.git-check-actions{align-items:stretch;flex-direction:column}.git-check-actions form,.git-check-actions .button{width:100%}}
