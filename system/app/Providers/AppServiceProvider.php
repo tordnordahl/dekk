@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\TireSet;
 use App\Services\TestDataGuard;
+use App\Services\TireHotelService;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +25,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        TireSet::saved(function (TireSet $set): void {
+            $isAtHotel = $set->received_at
+                && in_array($set->status, ['received', 'stored', 'picked', 'workshop'], true);
+
+            if ($isAtHotel && Schema::hasTable('hotel_agreements')) {
+                app(TireHotelService::class)->ensureAgreement($set);
+            }
+        });
+
         // Front-end assets must follow the actual web request. This keeps CSS
         // and JavaScript working after a deployment even if an old ASSET_URL
         // from localhost was accidentally copied into production.

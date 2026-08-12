@@ -18,6 +18,7 @@ use App\Services\VehicleLookupService;
 use App\Services\Accounting\AccountingExportService;
 use App\Services\WarehousePlacementService;
 use App\Services\BookingWorkflowService;
+use App\Services\TireHotelService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -248,7 +249,7 @@ class OperationsController extends Controller
         ]);
     }
 
-    public function storeTireSet(Request $request, WarehousePlacementService $placement): RedirectResponse
+    public function storeTireSet(Request $request, WarehousePlacementService $placement, TireHotelService $hotel): RedirectResponse
     {
         $org = $request->user()->organization_id;
         $data = $request->validate(['vehicle_id' => ['required', 'integer'], 'storage_location_id' => ['nullable', 'integer'], 'season' => ['required', 'in:summer,winter,all_season'], 'kind' => ['required', 'in:complete_wheels,tires,rims'], 'manufacturer' => ['nullable', 'string', 'max:100'], 'size' => ['nullable', 'string', 'max:50'], 'dot_year' => ['nullable', 'integer', 'between:1990,2100'], 'wheels' => ['required', 'array', 'size:4'], 'wheels.*.position' => ['required', 'distinct', 'in:front_left,front_right,rear_left,rear_right'], 'wheels.*.tread_depth_mm' => ['required', 'numeric', 'between:0,20']]);
@@ -264,10 +265,11 @@ class OperationsController extends Controller
             foreach ($wheels as $wheel) $inspection->measurements()->create([...$wheel, 'dot_year' => $data['dot_year'] ?? null, 'tpms_status' => 'not_checked', 'tire_damage' => false, 'rim_damage' => false, 'uneven_wear' => false]);
             return $set;
         });
-        return back()->with('success', 'Hjulsettet er registrert.')->with('label_url', route('tire-sets.labels', ['ids' => $set->id]));
+        $hotel->ensureAgreement($set);
+        return back()->with('success', 'Hjulsettet er registrert på dekkhotell. Hotellavtale og fakturerbart grunnlag er opprettet.')->with('label_url', route('tire-sets.labels', ['ids' => $set->id]));
     }
 
-    public function updateTireSetStatus(Request $request, TireSet $tireSet, WarehousePlacementService $placement): RedirectResponse
+    public function updateTireSetStatus(Request $request, TireSet $tireSet, WarehousePlacementService $placement, TireHotelService $hotel): RedirectResponse
     {
         abort_unless($tireSet->organization_id === $request->user()->organization_id, 404);
         $data = $request->validate(['status' => ['required', 'in:received,stored,picked,workshop,delivered'], 'storage_location_id' => ['nullable', 'integer']]);
@@ -284,6 +286,7 @@ class OperationsController extends Controller
             $toLocation = $tireSet->storage_location_id;
             if ($fromLocation !== $toLocation) DB::table('storage_location_movements')->insert(['organization_id'=>$tireSet->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$fromLocation,'to_location_id'=>$toLocation,'moved_by'=>$request->user()->id,'reason'=>'web_workflow','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
         });
+        if(in_array($tireSet->status,['received','stored','picked','workshop'],true))$hotel->ensureAgreement($tireSet);
         return back()->with('success', 'Hjulsettet er flyttet til «'.['received'=>'Mottatt','stored'=>'På lager','picked'=>'Plukket','workshop'=>'Verksted','delivered'=>'Utlevert'][$data['status']].'».');
     }
 
@@ -456,7 +459,7 @@ class OperationsController extends Controller
         return $willOverbook?$response->with('warning','Bookingene ble tillatt, men tidspunktet er overbooket: '.($simultaneous+$vehicleCount).' samtidige bookinger og '.$activeBayCount.' arbeidsbukker.'):$response;
     }
 
-    public function completeBooking(Request $request, Booking $booking, AccountingExportService $accounting, BookingWorkflowService $workflow): RedirectResponse
+    public function completeBooking(Request $request, Booking $booking, AccountingExportService $accounting, BookingWorkflowService $workflow, TireHotelService $hotel): RedirectResponse
     {
         abort_unless($booking->organization_id === $request->user()->organization_id, 404);
         abort_unless(in_array($request->user()->role, ['owner','admin','manager'], true), 403);
@@ -464,7 +467,7 @@ class OperationsController extends Controller
         $data=$request->validate(['return_to_hotel'=>['required','boolean'],'tire_set_id'=>['nullable','integer','required_if:return_to_hotel,1']]);
         $tireSet=null;
         if($request->boolean('return_to_hotel'))$tireSet=TireSet::where('organization_id',$booking->organization_id)->where('vehicle_id',$booking->vehicle_id)->findOrFail($data['tire_set_id']);
-        $invoice=DB::transaction(function () use ($booking, $accounting, $request, $workflow, $tireSet) {
+        $invoice=DB::transaction(function () use ($booking, $accounting, $request, $workflow, $tireSet, $hotel) {
             $booking->update(['status'=>'completed']);
             if($tireSet){
                 $receiving=StorageLocation::where('organization_id',$booking->organization_id)->where('branch_id',$booking->branch_id)->where('active',true)->where(fn($q)=>$q->where('location_type','receiving')->orWhere('code','MOTTAK'))->orderByRaw("CASE WHEN code = 'MOTTAK' THEN 0 ELSE 1 END")->first();
@@ -473,6 +476,7 @@ class OperationsController extends Controller
                 if($from!==$receiving?->id)DB::table('storage_location_movements')->insert(['organization_id'=>$booking->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$from,'to_location_id'=>$receiving?->id,'moved_by'=>$request->user()->id,'reason'=>'return_from_completed_booking','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
                 $order=$workflow->createWorkOrder($booking);$order->update(['status'=>'in_progress','completed_at'=>null]);
                 foreach(['Mottak: kontroller og skann hjulsett','Vask hjulsett','Mål mønsterdybde på alle fire hjul','Kontroller tilstand og dokumenter avvik','Tildel lagerplass og sett hjulsett på lager']as$position=>$name)$order->tasks()->updateOrCreate(['name'=>$name],['required'=>true,'completed'=>false,'completed_by'=>null,'completed_at'=>null,'position'=>20+$position]);
+                $hotel->ensureAgreement($tireSet);
             }
             $invoice=$accounting->createFromBooking($booking);
             DB::table('audit_logs')->insert(['organization_id'=>$booking->organization_id,'user_id'=>$request->user()->id,'action'=>'booking.completed','subject_type'=>Booking::class,'subject_id'=>$booking->id,'metadata'=>json_encode(['invoice_export_id'=>$invoice->id,'tire_set_returned_id'=>$tireSet?->id]),'created_at'=>now()]);
