@@ -9,8 +9,14 @@ use App\Models\StorageLocation;
 use App\Models\TireProduct;
 use App\Models\TireSet;
 use App\Models\Vehicle;
+use App\Models\HotelAgreement;
+use App\Models\Quote;
+use App\Models\User;
+use App\Models\WorkBay;
+use App\Models\WorkOrder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class ScaleDemoInventory extends Command
@@ -25,8 +31,12 @@ class ScaleDemoInventory extends Command
             ? Organization::findOrFail((int)$this->option('organization'))
             : Organization::firstOrCreate(['organization_number'=>'DEMO-DEKKPILOT'], ['public_id'=>(string)Str::uuid(),'name'=>'[DEMO] Nordisk Dekkhotell AS','email'=>'demo@dekkpilot.no','subscription_status'=>'active','billing_model'=>'invoice']);
         $branch = Branch::firstOrCreate(['organization_id'=>$org->id,'code'=>'HOVED'], ['public_id'=>(string)Str::uuid(),'name'=>'Demoavdeling Oslo','active'=>true]);
-        foreach(['MOTTAK','A-01','A-02','B-01','B-02','C-01','C-02','D-01'] as $index=>$code) StorageLocation::firstOrCreate(['branch_id'=>$branch->id,'code'=>$code],['public_id'=>(string)Str::uuid(),'organization_id'=>$org->id,'zone'=>$index===0?'Mottak':substr($code,0,1),'location_type'=>$index===0?'receiving':'rack','shelf_count'=>6,'sets_per_shelf'=>20,'map_x'=>($index%4)*23+3,'map_y'=>intdiv($index,4)*20+5,'map_width'=>18,'map_height'=>14,'pick_order'=>$index+1,'capacity'=>120,'active'=>true]);
+        $rackCount=max(7,(int)ceil(($count+ceil($count/9))*5/7/100));
+        $codes=['MOTTAK'];for($i=1;$i<=$rackCount;$i++)$codes[]=chr(65+intdiv($i-1,4)).'-'.str_pad((string)((($i-1)%4)+1),2,'0',STR_PAD_LEFT);
+        foreach($codes as $index=>$code) StorageLocation::updateOrCreate(['branch_id'=>$branch->id,'code'=>$code],['public_id'=>(string)(StorageLocation::where('branch_id',$branch->id)->where('code',$code)->value('public_id')?:Str::uuid()),'organization_id'=>$org->id,'zone'=>$index===0?'Mottak':substr($code,0,1),'location_type'=>$index===0?'receiving':'rack','shelf_count'=>10,'sets_per_shelf'=>10,'map_x'=>($index%4)*23+3,'map_y'=>intdiv($index,4)*20+5,'map_width'=>18,'map_height'=>14,'pick_order'=>$index+1,'capacity'=>100,'active'=>true]);
         $locations = StorageLocation::where('organization_id', $org->id)->where('active', true)->where('code', '!=', 'MOTTAK')->get();
+        $technicians=collect(range(1,5))->map(fn($i)=>User::updateOrCreate(['organization_id'=>$org->id,'email'=>'tekniker'.$i.'@demo.dekkpilot.no'],['branch_id'=>$branch->id,'name'=>['Anders Vik','Sara Moen','Marius Berg','Nora Dahl','Emil Strand'][$i-1],'password'=>Hash::make(Str::random(40)),'role'=>'technician','active'=>true]));
+        $bays=collect(range(1,3))->map(fn($i)=>WorkBay::updateOrCreate(['branch_id'=>$branch->id,'code'=>'BUKK-'.$i],['public_id'=>(string)(WorkBay::where('branch_id',$branch->id)->where('code','BUKK-'.$i)->value('public_id')?:Str::uuid()),'organization_id'=>$org->id,'name'=>'Løftebukk '.$i,'type'=>'vehicle_lift','active'=>true]));
 
         $sizes = ['205/55 R16','225/45 R17','225/50 R18','235/55 R19','245/45 R20','215/60 R17'];
         $tireBrands = ['Nokian','Continental','Michelin','Goodyear','Bridgestone','Hankook'];
@@ -84,12 +94,26 @@ class ScaleDemoInventory extends Command
             }
 
             Customer::where('organization_id',$org->id)->where('notes','like','[DEMO-BULK]%')->whereDoesntHave('vehicles')->forceDelete();
+            $this->buildCommercialDemo($org,$branch);
         });
 
         $vehicles = Vehicle::where('organization_id',$org->id)->where('notes','like','[DEMO-BULK]%')->count();
         $sets = TireSet::where('organization_id',$org->id)->where('condition_notes','like','[DEMO-BULK]%')->count();
         $this->info("Demoen har nå {$vehicles} realistiske biler og {$sets} hjulsett. Flere privat- og bedriftskunder har flere biler.");
         return self::SUCCESS;
+    }
+
+    private function buildCommercialDemo(Organization $org, Branch $branch): void
+    {
+        $sets=TireSet::with('vehicle.customer')->where('organization_id',$org->id)->where('condition_notes','like','[DEMO-BULK]%')->whereIn('status',['stored','picked','workshop'])->orderBy('id')->get();
+        foreach($sets->take((int)floor($sets->count()*.8)) as $set) HotelAgreement::updateOrCreate(['organization_id'=>$org->id,'vehicle_id'=>$set->vehicle_id,'tire_set_id'=>$set->id],['public_id'=>(string)(HotelAgreement::where('organization_id',$org->id)->where('tire_set_id',$set->id)->value('public_id')?:Str::uuid()),'branch_id'=>$branch->id,'customer_id'=>$set->vehicle->customer_id,'status'=>'active','starts_on'=>today()->subMonths(($set->id%10)+1),'renews_on'=>today()->addMonths(($set->id%11)+1),'price_cents'=>129900,'auto_renew'=>true,'terms_version'=>'demo-2026','terms_accepted_at'=>now()->subMonths(2),'notes'=>'[DEMO-BULK] Aktiv og automatisk koblet hotellavtale.']);
+
+        $products=TireProduct::where('organization_id',$org->id)->where('active',true)->get()->groupBy(fn($p)=>$p->size.'|'.$p->season);
+        foreach($sets->where('minimum_tread_depth','<',3)->take(12)->values() as $i=>$set){$status=['draft','sent','viewed','accepted','declined','sent'][$i%6];$options=$products->get($set->size.'|'.$set->season,collect())->take(3);if($options->isEmpty())continue;$quote=Quote::updateOrCreate(['organization_id'=>$org->id,'reference'=>'DEMO-T-'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT)],['public_id'=>(string)(Quote::where('organization_id',$org->id)->where('reference','DEMO-T-'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT))->value('public_id')?:Str::uuid()),'branch_id'=>$branch->id,'customer_id'=>$set->vehicle->customer_id,'vehicle_id'=>$set->vehicle_id,'source_tire_set_id'=>$set->id,'status'=>$status,'access_token_hash'=>hash('sha256','demo-quote-'.$org->id.'-'.$i),'subtotal_cents'=>(int)round($options->min('price_cents')*4/1.25),'vat_cents'=>(int)round($options->min('price_cents')*4-($options->min('price_cents')*4/1.25)),'total_cents'=>$options->min('price_cents')*4,'message'=>'[DEMO] Tre anbefalte dekkvalg basert på målt mønsterdybde.','sent_at'=>$status==='draft'?null:now()->subDays(5),'viewed_at'=>in_array($status,['viewed','accepted','declined'])?now()->subDays(4):null,'responded_at'=>in_array($status,['accepted','declined'])?now()->subDays(3):null,'expires_at'=>now()->addDays(14)]);$quote->items()->delete();foreach($options as$product)$quote->items()->create(['tire_product_id'=>$product->id,'description'=>$product->brand.' '.$product->model.' '.$product->size,'quantity'=>4,'unit_price_cents'=>$product->price_cents,'line_total_cents'=>$product->price_cents*4]);}
+
+        $technicians=User::where('organization_id',$org->id)->where('role','technician')->where('active',true)->get();
+        $vehicles=Vehicle::with('customer')->where('organization_id',$org->id)->where('notes','like','[DEMO-BULK]%')->take(6)->get();
+        foreach($vehicles as$i=>$vehicle){$status=['draft','ready','in_progress','quality_check','completed','completed'][$i];$order=WorkOrder::updateOrCreate(['organization_id'=>$org->id,'reference'=>'DEMO-AO-'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT)],['public_id'=>(string)(WorkOrder::where('organization_id',$org->id)->where('reference','DEMO-AO-'.str_pad((string)($i+1),3,'0',STR_PAD_LEFT))->value('public_id')?:Str::uuid()),'branch_id'=>$branch->id,'customer_id'=>$vehicle->customer_id,'vehicle_id'=>$vehicle->id,'assigned_user_id'=>$i===0?null:$technicians->get($i%max(1,$technicians->count()))?->id,'status'=>$status,'started_at'=>in_array($status,['in_progress','quality_check','completed'])?now()->subHours(3):null,'completed_at'=>$status==='completed'?now()->subHour():null,'notes'=>'[DEMO-BULK] '.(['Ny arbeidsordre','Tildelt tekniker','Arbeid pågår','Venter på deler / sluttkontroll','Fullført – klar for fakturering','Fullført og kvalitetssikret'][$i])]);$order->tasks()->delete();foreach(['Kontroller hjul','Utfør bestilt arbeid','Sluttkontroll']as$position=>$name)$order->tasks()->create(['name'=>$name,'required'=>true,'completed'=>$status==='completed'||($status==='quality_check'&&$position<2)||($status==='in_progress'&&$position===0),'completed_by'=>$status==='draft'?null:$order->assigned_user_id,'completed_at'=>$status==='completed'?now()->subHour():null,'position'=>$position]);}
     }
 
     private function upsertWheelSet(int $orgId, Vehicle $vehicle, $locations, array $brands, array $sizes, int $seed, string $season, string $code): void

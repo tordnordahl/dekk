@@ -32,7 +32,7 @@
         @if($canCreate)<button type="button" class="booking-add-button" data-booking-open aria-label="Opprett ny booking" title="Opprett ny booking">+</button>@endif
     </div>
 </section>
-<nav class="booking-view-switch" aria-label="Velg timebokvisning"><a class="{{ !in_array(request('view'),['available','calendar'],true)?'active':'' }}" href="{{ route('bookings') }}">Kompakt liste</a><a class="{{ request('view')==='calendar'?'active':'' }}" href="{{ route('bookings',['view'=>'calendar']) }}">Klinisk kalender</a><a class="{{ request('view')==='available'?'active':'' }}" href="{{ route('bookings',['view'=>'available']) }}">Ledige timer</a></nav>
+<nav class="booking-view-switch" aria-label="Velg timebokvisning"><a class="{{ !in_array(request('view'),['available','calendar'],true)?'active':'' }}" href="{{ route('bookings') }}">Kompakt liste</a><a class="{{ request('view')==='calendar'?'active':'' }}" href="{{ route('bookings',['view'=>'calendar']) }}">Visuell kalender</a><a class="{{ request('view')==='available'?'active':'' }}" href="{{ route('bookings',['view'=>'available']) }}">Ledige timer</a></nav>
 <section class="booking-workspace">
     <article class="panel">
         @if(request('view')==='available')
