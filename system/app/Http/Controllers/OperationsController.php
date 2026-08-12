@@ -428,6 +428,8 @@ class OperationsController extends Controller
             ])->sortBy(fn($set)=>(['delivered'=>0,'workshop'=>1,'picked'=>2,'received'=>3,'stored'=>4][$set['status']]??99))->values()->all() ?? []);
         });
         $workBays = WorkBay::where('branch_id', $request->user()->branch_id)->where('active', true)->orderBy('code')->get();
+        $employees = User::where('organization_id', $org)->where('active', true)->orderBy('name')->get();
+        $calendarEmployees = $employees->where('branch_id', $request->user()->branch_id)->values();
         $capacityBookings = Booking::where('organization_id', $org)->where('branch_id', $request->user()->branch_id)->whereNotIn('status', ['cancelled', 'no_show'])->where('starts_at', '>=', today()->subDay())->where('starts_at', '<', today()->addDays(62))->get(['id','starts_at','ends_at']);
         if ($workBays->isNotEmpty()) $bookings->getCollection()->each(function ($booking) use ($capacityBookings, $workBays) {$simultaneous=$capacityBookings->filter(fn($other)=>$other->starts_at->lt($booking->ends_at)&&$other->ends_at->gt($booking->starts_at))->count();$booking->setAttribute('capacity_overbooked',$simultaneous>$workBays->count());});
         $services = ServiceProduct::where('organization_id',$org)->where('active',true)->orderBy('name')->get();
@@ -463,7 +465,24 @@ class OperationsController extends Controller
             $existing=Booking::where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->whereNotIn('status',['cancelled','no_show'])->where('starts_at','<',$day->copy()->addDays(31)->endOfDay())->where('ends_at','>',$day)->get(['starts_at','ends_at']);
             for($checked=0;$checked<30&&$availabilitySlots->count()<40;$checked++,$day->addDay()){if($day->isWeekend())continue;for($slot=$day->copy()->setTime(8,0);$slot->copy()->addMinutes($duration)->lte($day->copy()->setTime(16,0));$slot->addMinutes(15)){if($slot->isPast())continue;$end=$slot->copy()->addMinutes($duration);$occupied=$existing->filter(fn($booking)=>$booking->starts_at->lt($end)&&$booking->ends_at->gt($slot))->count();if($occupied<$capacity){$availabilitySlots->push(['starts_at'=>$slot->format('Y-m-d\TH:i'),'day_key'=>$slot->toDateString(),'day'=>$slot->translatedFormat('l d. F'),'time'=>$slot->format('H:i'),'end'=>$end->format('H:i')]);if($availabilitySlots->count()>=40)break;}}}
         }
-        return view('bookings.index', ['bookings' => $bookings, 'workBays' => $workBays, 'employees' => User::where('organization_id', $org)->where('active', true)->orderBy('name')->get(), 'services' => $services, 'suggestedDuration' => ($settings?->minutes_per_wheel ?? 8) * 4 + ($settings?->booking_buffer_minutes ?? 5), 'capacityBookings'=>$capacityBookings,'availabilitySlots'=>$availabilitySlots,'availabilityService'=>$availabilityService,'bookingPrefill'=>$bookingPrefill]);
+        $calendarDate = $request->filled('calendar_date') ? now()->parse($request->query('calendar_date'))->startOfDay() : today();
+        $calendarSplit = in_array($request->query('split'), ['all','bay','employee'], true) ? $request->query('split') : 'all';
+        $weeklyHours = $settings?->weekly_hours ?? [1=>['08:00','16:00'],2=>['08:00','16:00'],3=>['08:00','16:00'],4=>['08:00','16:00'],5=>['08:00','16:00']];
+        $calendarHours = $weeklyHours[$calendarDate->dayOfWeek] ?? null;
+        $calendarSlots = collect();
+        if (is_array($calendarHours) && count($calendarHours) >= 2) {
+            $calendarStart = $calendarDate->copy()->setTimeFromTimeString($calendarHours[0]);
+            $calendarEnd = $calendarDate->copy()->setTimeFromTimeString($calendarHours[1]);
+            if ($calendarEnd->gt($calendarStart)) for ($slot = $calendarStart->copy(); $slot->lt($calendarEnd); $slot->addMinutes(15)) $calendarSlots->push($slot->copy());
+        }
+        $calendarBookings = Booking::with(['customer','vehicle','assignedUser','workBay'])->where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->whereNotIn('status',['cancelled','no_show'])->where('starts_at','<',$calendarDate->copy()->addDay())->where('ends_at','>',$calendarDate)->orderBy('starts_at')->get();
+        $parallelCapacity = $workBays->count() > 0 && $calendarEmployees->count() > 0 ? min($workBays->count(), $calendarEmployees->count()) : max(1, $workBays->count(), $calendarEmployees->count());
+        $calendarLanes = match ($calendarSplit) {
+            'bay' => $workBays->map(fn($bay)=>['key'=>'bay-'.$bay->id,'label'=>$bay->code,'type'=>'bay','id'=>$bay->id])->prepend(['key'=>'bay-none','label'=>'Ikke tildelt','type'=>'bay','id'=>null])->values(),
+            'employee' => $calendarEmployees->map(fn($employee)=>['key'=>'employee-'.$employee->id,'label'=>$employee->name,'type'=>'employee','id'=>$employee->id])->prepend(['key'=>'employee-none','label'=>'Ikke tildelt','type'=>'employee','id'=>null])->values(),
+            default => collect([['key'=>'all','label'=>'Hele verkstedet','type'=>'all','id'=>null]]),
+        };
+        return view('bookings.index', ['bookings' => $bookings, 'workBays' => $workBays, 'employees' => $employees, 'services' => $services, 'suggestedDuration' => ($settings?->minutes_per_wheel ?? 8) * 4 + ($settings?->booking_buffer_minutes ?? 5), 'capacityBookings'=>$capacityBookings,'availabilitySlots'=>$availabilitySlots,'availabilityService'=>$availabilityService,'bookingPrefill'=>$bookingPrefill,'calendarDate'=>$calendarDate,'calendarSplit'=>$calendarSplit,'calendarSlots'=>$calendarSlots,'calendarBookings'=>$calendarBookings,'calendarLanes'=>$calendarLanes,'parallelCapacity'=>$parallelCapacity]);
     }
 
     public function bookingCustomerSearch(Request $request): JsonResponse

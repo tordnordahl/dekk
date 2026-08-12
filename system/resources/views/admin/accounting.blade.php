@@ -1,6 +1,6 @@
 <x-layouts.app title="Regnskap · DekkPilot" heading="Regnskap og fakturakø">
 <link rel="stylesheet" href="{{ asset('accounting-setup.css') }}?v=20260812-1">
-<div class="admin-subnav"><a href="{{ route('admin') }}">← Admin</a><a href="#connection">Tilkobling</a><a href="#queue">Eksportkø</a></div>
+<div class="admin-subnav"><a href="{{ route('admin') }}">← Admin</a><a href="#connection">Regnskap</a><a href="#queue">Fakturakø</a><a href="#payments">Betalingsløsninger</a></div>
 
 <section class="panel accounting-connect accounting-primary" id="connection">
  <div class="panel-head"><div><p class="eyebrow">REGNSKAPSKOBLING</p><h2>{{ $connection ? 'Tilkoblet '.ucfirst(str_replace('accounting_','',$connection->provider)) : 'Velg regnskapssystem' }}</h2><p>Feltene tilpasses systemet du velger. Nøkler krypteres og vises aldri igjen etter lagring.</p></div></div>
