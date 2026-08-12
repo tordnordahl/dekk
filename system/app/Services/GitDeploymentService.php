@@ -6,7 +6,7 @@ use RuntimeException;
 class GitDeploymentService
 {
     private const PROTECTED_PATHS=['.env','system/.env','.env.production','system/.env.production','storage/','system/storage/','public/storage/','system/public/storage/','vendor/','system/vendor/','composer.lock','system/composer.lock','.DS_Store'];
-    private string $path;private string $git;private string $remote;
+    private string $path;private string $git;private string $remote;private ?string $advertisedRemoteHead=null;
     public function __construct(){ $this->path=(string)config('deployment.repository_path');$this->git=(string)config('deployment.git_binary');$this->remote=(string)config('deployment.remote','origin'); }
     public function inspect(bool $fetch=false,bool $deep=false):array
     {
@@ -30,7 +30,7 @@ class GitDeploymentService
             $remoteHead=$remoteExists?trim($this->run(['rev-parse','--short',$remoteRef])):null;
             $remoteDate=$remoteExists?trim($this->run(['show','-s','--format=%cI',$remoteRef])):null;
             $remoteFiles=$remoteExists?count(array_filter(explode("\n",trim($this->run(['ls-tree','-r','--name-only',$remoteRef]))))):0;
-            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'extra_files'=>$extraFiles,'deep_checked'=>$deep,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD'])),'remote_head'=>$remoteHead,'remote_commit_at'=>$remoteDate,'remote_file_count'=>$remoteFiles];
+            return['available'=>true,'path'=>$root,'branch'=>$branch,'remote'=>$this->remote,'remote_url'=>$this->maskUrl($url),'dirty'=>$dirty,'dirty_files'=>$dirtyFiles,'ahead'=>$ahead,'behind'=>$behind,'files'=>$selectable,'ignored_files'=>$ignored,'extra_files'=>$extraFiles,'deep_checked'=>$deep,'vendor_required'=>$vendor['required'],'vendor_ready'=>$vendor['ready'],'vendor_message'=>$vendor['message'],'database_required'=>(bool)array_filter($selectable,fn($f)=>str_starts_with($f,'system/database/migrations/')),'checked_remote'=>$fetch,'head'=>trim($this->run(['rev-parse','--short','HEAD'])),'remote_head'=>$remoteHead,'advertised_remote_head'=>$this->advertisedRemoteHead?substr($this->advertisedRemoteHead,0,12):null,'remote_commit_at'=>$remoteDate,'remote_file_count'=>$remoteFiles];
         }catch(\Throwable $e){return['available'=>false,'error'=>$e->getMessage(),'path'=>$this->path];}
     }
     public function initialize(string $repositoryUrl,string $branch):array
@@ -100,8 +100,16 @@ class GitDeploymentService
     private function ok(array $args):bool{$p=new Process([$this->git,...$args],$this->path,null,null,10);$p->run();return$p->isSuccessful();}
     private function fetchRemote(string $branch):void
     {
-        $ref='+refs/heads/'.$branch.':refs/remotes/'.$this->remote.'/'.$branch;
-        $this->run(['-c','core.hooksPath=/dev/null','fetch','--force','--prune','--no-tags',$this->remote,$ref],180);
+        $branchRef='refs/heads/'.$branch;
+        $advertised=trim($this->run(['ls-remote','--heads',$this->remote,$branchRef],60));
+        if(!preg_match('/^([a-f0-9]{40,64})\s+refs\/heads\//i',$advertised,$match))throw new RuntimeException('GitHub annonserte ingen commit for grenen '.$branch.'. Kontroller gren og tilgang.');
+        $this->advertisedRemoteHead=strtolower($match[1]);
+        $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;
+        // Hent commit-ID-en GitHub nettopp annonserte. Da kan ikke en gammel
+        // remote-tracking ref eller fetch-cache gi et falskt «ingenting nytt».
+        $this->run(['-c','core.hooksPath=/dev/null','fetch','--force','--prune','--no-tags',$this->remote,'+'.$this->advertisedRemoteHead.':'.$remoteRef],180);
+        $fetched=strtolower(trim($this->run(['rev-parse',$remoteRef])));
+        if(!hash_equals($this->advertisedRemoteHead,$fetched))throw new RuntimeException('GitHub-kontrollen hentet ikke annonsert commit. Prøv igjen eller kontroller serverens Git-mellomlager.');
     }
     private function workingTreeDifferences(string $remoteRef):array
     {
