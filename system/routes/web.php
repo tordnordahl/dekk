@@ -83,6 +83,7 @@ Route::middleware(['auth','2fa','superadmin'])->group(function(){Route::get('/su
 Route::middleware(['auth','2fa','superadmin'])->group(function(){
     Route::get('/superadmin/diagnose',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'show'])->name('superadmin.diagnostics');
     Route::post('/superadmin/diagnose',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'toggle'])->middleware('throttle:6,1')->name('superadmin.diagnostics.toggle');
+    Route::delete('/superadmin/diagnose/logg',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'clear'])->middleware('throttle:3,10')->name('superadmin.diagnostics.clear');
 });
 
 Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tenant.rbac'])->group(function () {
