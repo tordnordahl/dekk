@@ -82,8 +82,10 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/abonnement', [BillingController::class, 'index'])->name('billing');
     Route::get('/kunder', [OperationsController::class, 'customers'])->name('customers');
+    Route::get('/postnummer/{postalCode}', [OperationsController::class, 'postalCode'])->where('postalCode', '\\d{4}')->middleware('throttle:120,1')->name('postal-code.lookup');
     Route::post('/kunder', [OperationsController::class, 'storeCustomer'])->name('customers.store');
     Route::get('/kunder/{customer}', [OperationsController::class, 'customer'])->name('customers.show');
+    Route::put('/kunder/{customer}', [OperationsController::class, 'updateCustomer'])->name('customers.update');
     Route::delete('/kunder/{customer}', [OperationsController::class, 'destroyCustomer'])->name('customers.destroy');
     Route::get('/kunder/{customer}/dataeksport', [OperationsController::class, 'exportCustomer'])->name('customers.export');
     Route::post('/kunder/{customer}/kjoretoy', [OperationsController::class, 'storeVehicle'])->name('vehicles.store');

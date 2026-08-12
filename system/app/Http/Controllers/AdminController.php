@@ -122,11 +122,13 @@ class AdminController extends Controller
             foreach ($vehicles as $i => $vehicleData) {
                 $sequence = (int) Customer::withTrashed()->where('organization_id', $org)->max('id') + 1;
                 $name = $firstNames[array_rand($firstNames)].' '.$lastNames[array_rand($lastNames)];
+                $postalPlaces = [['0182','OSLO'],['5003','BERGEN'],['7010','TRONDHEIM'],['4006','STAVANGER'],['3015','DRAMMEN']];
+                [$postalCode, $city] = $postalPlaces[array_rand($postalPlaces)];
                 $customer = Customer::create([
                     'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'branch_id' => $branch,
                     'customer_number' => 'K'.str_pad((string) $sequence, 6, '0', STR_PAD_LEFT), 'name' => $name,
                     'email' => 'dummy'.$sequence.'@example.no', 'phone' => '9'.random_int(1000000, 9999999),
-                    'city' => ['Oslo','Bergen','Trondheim','Stavanger','Drammen'][array_rand(['Oslo','Bergen','Trondheim','Stavanger','Drammen'])],
+                    'postal_code' => $postalCode, 'city' => $city,
                     'notes' => '[DUMMY] Generert fra adminverktøyet.',
                 ]);
                 $vehicle = Vehicle::create([

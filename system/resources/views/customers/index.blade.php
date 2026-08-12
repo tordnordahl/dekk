@@ -23,12 +23,14 @@
 </article>
 </section>
 
-<dialog class="customer-dialog" data-customer-dialog data-auto-open="{{ request()->boolean('new') || ($errors->hasAny(['type','name','email','phone','organization_number','notes']) && old('name') !== null) ? '1' : '0' }}">
+<dialog class="customer-dialog" data-customer-dialog data-auto-open="{{ request()->boolean('new') || ($errors->hasAny(['type','name','email','phone','organization_number','postal_code','notes']) && old('name') !== null) ? '1' : '0' }}">
     <div class="customer-dialog-head"><div><p class="eyebrow">STEG 1 AV 2</p><h2>Legg til kunde</h2></div><button type="button" data-customer-close aria-label="Lukk">×</button></div>
     <form method="post" action="{{ route('customers.store') }}" class="stack customer-dialog-body">@csrf
         <label>Kundetype<select name="type"><option value="private" @selected(old('type','private')==='private')>Privatkunde</option><option value="business" @selected(old('type')==='business')>Bedrift</option></select></label>
         <label>Navn<input name="name" value="{{ old('name') }}" required maxlength="255" autofocus>@error('name')<small class="field-error">{{ $message }}</small>@enderror</label>
         <div class="fields"><label>Telefon<input name="phone" value="{{ old('phone') }}"></label><label>E-post<input type="email" name="email" value="{{ old('email') }}">@error('email')<small class="field-error">{{ $message }}</small>@enderror</label></div>
+        <label>Adresse <small>(valgfritt)</small><input name="address" value="{{ old('address') }}" autocomplete="street-address"></label>
+        <div class="fields" data-postal-lookup data-lookup-url="{{ route('postal-code.lookup','POSTAL_CODE') }}"><label>Postnummer<input name="postal_code" value="{{ old('postal_code') }}" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" placeholder="0000" required data-postal-code>@error('postal_code')<small class="field-error">{{ $message }}</small>@enderror</label><label>Poststed<input name="city" value="{{ old('city') }}" readonly tabindex="-1" placeholder="Fylles ut automatisk" data-postal-city><small data-postal-status>Fylles ut fra postnummeret.</small></label></div>
         <label>Organisasjonsnummer<input name="organization_number" value="{{ old('organization_number') }}"></label>
         <label>Internt notat<textarea name="notes" rows="3">{{ old('notes') }}</textarea></label>
         <label class="check"><input type="checkbox" name="uses_tire_hotel" value="1" @checked(old('uses_tire_hotel'))><span><strong>Dekkhotell</strong><small>Klargjør sommer- og vinterhjul på bilen. Hjulene registreres ikke som innlevert ennå.</small></span></label>
@@ -51,5 +53,5 @@
     </form>
 </dialog>
 @endif
-<script src="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-dialog.js']) : asset('customer-dialog.js') }}?v=20260812-1" defer></script>
+<script src="{{ $localAssetHost ? route('system.asset', ['filename'=>'customer-dialog.js']) : asset('customer-dialog.js') }}?v=20260812-2" defer></script>
 </x-layouts.app>

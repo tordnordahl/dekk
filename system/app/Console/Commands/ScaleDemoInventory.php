@@ -61,6 +61,7 @@ class ScaleDemoInventory extends Command
                     'branch_id'=>$branch->id, 'type'=>$business?'business':'private', 'name'=>$name,
                     'organization_number'=>$business?str_pad((string)(910000000+$customerKey),9,'0',STR_PAD_LEFT):null,
                     'email'=>'bulk'.str_pad((string)$customerKey,5,'0',STR_PAD_LEFT).'@example.no', 'phone'=>'9'.str_pad((string)$customerKey,7,'0',STR_PAD_LEFT),
+                    'postal_code'=>'0182', 'city'=>'OSLO',
                     'notes'=>'[DEMO-BULK] Syntetiske skaleringsdata. '.($business?'Bedriftskunde med bilpark.':'Privatkunde.'), 'deleted_at'=>null,
                 ]);
 

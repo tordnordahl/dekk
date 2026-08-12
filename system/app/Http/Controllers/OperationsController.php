@@ -19,6 +19,7 @@ use App\Services\Accounting\AccountingExportService;
 use App\Services\WarehousePlacementService;
 use App\Services\BookingWorkflowService;
 use App\Services\TireHotelService;
+use App\Services\PostalCodeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,14 @@ class OperationsController extends Controller
             $vehicleCustomer = Customer::where('organization_id', $org)->where('public_id', $publicId)->first();
         }
         return view('customers.index', ['customers' => $query->latest()->paginate(20)->withQueryString(), 'vehicleCustomer' => $vehicleCustomer]);
+    }
+
+    public function postalCode(string $postalCode, PostalCodeService $postalCodes): JsonResponse
+    {
+        $city = $postalCodes->city($postalCode);
+        abort_unless($city, 404, 'Postnummeret finnes ikke i Postens register.');
+
+        return response()->json(['postal_code' => $postalCode, 'city' => $city]);
     }
 
     public function customer(Request $request, Customer $customer): View
@@ -119,9 +128,14 @@ class OperationsController extends Controller
         return view('inventory.show',compact('tireSet','locations','agreement'));
     }
 
-    public function storeCustomer(Request $request): RedirectResponse
+    public function storeCustomer(Request $request, PostalCodeService $postalCodes): RedirectResponse
     {
-        $data = $request->validate(['type' => ['required', 'in:private,business'], 'name' => ['required', 'string', 'max:255'], 'email' => ['nullable', 'email', 'max:255'], 'phone' => ['nullable', 'string', 'max:32'], 'organization_number' => ['nullable', 'string', 'max:32'], 'notes' => ['nullable', 'string', 'max:4000'], 'uses_tire_hotel' => ['nullable', 'boolean']]);
+        $data = $request->validate(['type' => ['required', 'in:private,business'], 'name' => ['required', 'string', 'max:255'], 'email' => ['nullable', 'email', 'max:255'], 'phone' => ['nullable', 'string', 'max:32'], 'organization_number' => ['nullable', 'string', 'max:32'], 'address' => ['nullable', 'string', 'max:255'], 'postal_code' => ['required', 'digits:4'], 'notes' => ['nullable', 'string', 'max:4000'], 'uses_tire_hotel' => ['nullable', 'boolean']]);
+        $city = $postalCodes->city($data['postal_code']);
+        if (! $city) {
+            return back()->withErrors(['postal_code' => 'Postnummeret finnes ikke i Postens register.'])->withInput();
+        }
+        $data['city'] = $city;
         $usesTireHotel = (bool) ($data['uses_tire_hotel'] ?? false);
         unset($data['uses_tire_hotel']);
         $org = $request->user()->organization_id;
@@ -130,6 +144,23 @@ class OperationsController extends Controller
             return Customer::create([...$data, 'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'branch_id' => $request->user()->branch_id, 'customer_number' => 'K'.str_pad((string) $next, 6, '0', STR_PAD_LEFT)]);
         });
         return redirect()->route('customers', ['new_vehicle' => $customer->public_id, 'tire_hotel' => $usesTireHotel ? 1 : null])->with('success', 'Kunden er opprettet. Legg til kjøretøyet.');
+    }
+
+    public function updateCustomer(Request $request, Customer $customer, PostalCodeService $postalCodes): RedirectResponse
+    {
+        abort_unless($customer->organization_id === $request->user()->organization_id, 404);
+        abort_unless(in_array($request->user()->role, ['owner','admin','manager','customer_service'], true), 403);
+        $data = $request->validate([
+            'type'=>['required','in:private,business'], 'name'=>['required','string','max:255'],
+            'email'=>['nullable','email','max:255'], 'phone'=>['nullable','string','max:32'],
+            'organization_number'=>['nullable','string','max:32'], 'address'=>['nullable','string','max:255'],
+            'postal_code'=>['required','digits:4'], 'notes'=>['nullable','string','max:4000'],
+        ]);
+        $city = $postalCodes->city($data['postal_code']);
+        if (! $city) return back()->withErrors(['postal_code'=>'Postnummeret finnes ikke i Postens register.'])->withInput();
+        $customer->update([...$data, 'city'=>$city]);
+        DB::table('audit_logs')->insert(['organization_id'=>$customer->organization_id,'user_id'=>$request->user()->id,'action'=>'customer.updated','subject_type'=>Customer::class,'subject_id'=>$customer->id,'ip_address'=>$request->ip(),'created_at'=>now()]);
+        return back()->with('success','Kundeopplysningene er oppdatert.');
     }
 
     public function storeVehicle(Request $request, Customer $customer): RedirectResponse
