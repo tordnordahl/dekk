@@ -68,7 +68,9 @@ class CustomerPortalController extends Controller
         $lowTreadSets = $customer->vehicles->flatMap(fn ($vehicle) => $vehicle->tireSets->map(function ($set) use ($vehicle) {
             $set->setRelation('vehicle', $vehicle);
             return $set;
-        }))->filter(fn ($set) => in_array('age', $set->replacement_reasons, true) || ($set->minimum_tread_depth !== null && (float) $set->minimum_tread_depth < 3) ? filled($set->size) : false && ! $completedQuoteSetIds->contains($set->id));
+        }))->filter(fn ($set) => $set->replacement_reasons !== []
+            && filled($set->size)
+            && ! $completedQuoteSetIds->contains($set->id));
         $recommendations = $lowTreadSets->map(function ($set) use ($openQuotes) {
             $quantity = $this->replacementQuantity($set);
             return [
@@ -157,7 +159,7 @@ class CustomerPortalController extends Controller
         ]);
 
         $vehicle = Vehicle::where('customer_id', $access->customer_id)->findOrFail($tireSet->vehicle_id);
-        abort_unless($tireSet->organization_id === $access->organization_id && (float) $tireSet->minimum_tread_depth < 3 && filled($tireSet->size), 404);
+        abort_unless($tireSet->organization_id === $access->organization_id && $tireSet->replacement_reasons !== [] && filled($tireSet->size), 404);
         $branchId = Customer::whereKey($access->customer_id)->value('branch_id')
             ?: DB::table('branches')->where('organization_id', $access->organization_id)->where('active', true)->value('id');
         abort_unless($branchId, 422, 'Verkstedet mangler en aktiv avdeling.');
