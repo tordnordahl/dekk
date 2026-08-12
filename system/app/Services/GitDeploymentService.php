@@ -26,13 +26,18 @@ class GitDeploymentService
     public function initialize(string $repositoryUrl,string $branch):array
     {
         if(!is_dir($this->path))throw new RuntimeException('Den konfigurerte prosjektmappen finnes ikke.');
-        if(is_dir($this->path.'/.git'))throw new RuntimeException('Prosjektmappen er allerede initialisert med Git. Bruk statuskontrollen i stedet.');
+        $gitExists=is_dir($this->path.'/.git');
+        if($gitExists&&$this->ok(['rev-parse','--verify','HEAD']))throw new RuntimeException('Prosjektmappen er allerede initialisert med Git. Bruk statuskontrollen i stedet.');
         $repositoryUrl=trim($repositoryUrl);$branch=trim($branch);
         if(!preg_match('~^(?:https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?|git@github\.com:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?)$~i',$repositoryUrl))throw new RuntimeException('Oppgi en gyldig GitHub repository-adresse uten brukernavn, token eller passord.');
         if(!preg_match('/^[A-Za-z0-9._\/-]+$/',$branch))throw new RuntimeException('Ugyldig Git-gren.');
         try{
-            $this->run(['init','-b',$branch],30);
-            $this->run(['remote','add',$this->remote,$repositoryUrl],15);
+            // Eldre Git-versjoner på webhotell støtter ikke `git init -b`.
+            // Initialiser først, og sett deretter ønsket branch eksplisitt.
+            if(!$gitExists)$this->run(['init'],30);
+            $this->run(['symbolic-ref','HEAD','refs/heads/'.$branch],15);
+            if($this->ok(['remote','get-url',$this->remote]))$this->run(['remote','set-url',$this->remote,$repositoryUrl],15);
+            else $this->run(['remote','add',$this->remote,$repositoryUrl],15);
             $this->run(['-c','core.hooksPath=/dev/null','fetch','--prune',$this->remote,$branch],120);
             $remoteRef='refs/remotes/'.$this->remote.'/'.$branch;
             if(!$this->ok(['show-ref','--verify','--quiet',$remoteRef]))throw new RuntimeException('Fant ikke grenen '.$branch.' på GitHub.');
@@ -42,7 +47,7 @@ class GitDeploymentService
             $this->run(['reset','--mixed',$remoteRef],30);
             $this->run(['branch','--set-upstream-to',$this->remote.'/'.$branch,$branch],15);
             return $this->inspect(false);
-        }catch(\Throwable $e){throw new RuntimeException('Førstegangsoppsettet stoppet uten å overskrive programfiler: '.$e->getMessage(),0,$e);}
+        }catch(\Throwable $e){$message=$e->getMessage();if(str_contains($message,"could not read Username for 'https://github.com'"))$message='GitHub avviste HTTPS-tilkoblingen fordi repositoryet er privat. Legg serverens offentlige SSH-nøkkel inn som en read-only Deploy Key i GitHub, og koble deretter til med SSH-adressen git@github.com:eier/repository.git. Vanlig GitHub-passord støttes ikke.';elseif(str_contains($message,'Repository not found'))$message='GitHub fant ikke repositoryet, eller serveren mangler tilgang. Kontroller adressen og bruk en read-only Deploy Key hvis repositoryet er privat.';elseif(str_contains($message,'Permission denied (publickey)'))$message='GitHub avviste serverens SSH-nøkkel. Legg serverens offentlige nøkkel inn som read-only Deploy Key på repositoryet og prøv igjen.';throw new RuntimeException('Førstegangsoppsettet stoppet uten å overskrive programfiler: '.$message,0,$e);}
     }
     public function deploy():array
     {
