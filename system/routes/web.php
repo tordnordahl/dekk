@@ -96,6 +96,7 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::delete('/kunder/{customer}', [OperationsController::class, 'destroyCustomer'])->name('customers.destroy');
     Route::get('/kunder/{customer}/dataeksport', [OperationsController::class, 'exportCustomer'])->name('customers.export');
     Route::post('/kunder/{customer}/kjoretoy', [OperationsController::class, 'storeVehicle'])->name('vehicles.store');
+    Route::get('/kjoretoy/{vehicle}/historikk', [OperationsController::class, 'vehicleHistory'])->name('vehicles.history');
     Route::put('/kunder/{customer}/kjoretoy/{vehicle}/flytt', [OperationsController::class, 'transferVehicle'])->name('vehicles.transfer');
     Route::delete('/kunder/{customer}/kjoretoy/{vehicle}', [OperationsController::class, 'archiveVehicle'])->name('vehicles.archive');
     Route::get('/kunder/{customer}/kjoretoy-oppslag', [OperationsController::class, 'lookupVehicle'])->middleware('throttle:30,1')->name('vehicles.lookup');

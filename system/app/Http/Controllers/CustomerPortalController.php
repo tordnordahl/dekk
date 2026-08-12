@@ -50,11 +50,13 @@ class CustomerPortalController extends Controller
     {
         $customer = Customer::with([
             'organization',
+            'vehicles.ownershipPeriods',
             'vehicles.tireSets.inspections.measurements',
             'bookings' => fn ($query) => $query->where('starts_at', '>=', now())->whereNotIn('status', ['cancelled', 'no_show'])->orderBy('starts_at'),
             'quotes' => fn ($query) => $query->with(['items', 'vehicle', 'sourceTireSet'])->latest()->limit(20),
             'workOrders' => fn ($query) => $query->with(['vehicle', 'tasks'])->latest()->limit(20),
         ])->findOrFail($customerId);
+        $customer->vehicles->each(function($vehicle)use($customer){$period=$vehicle->ownershipPeriods->where('customer_id',$customer->id)->sortByDesc('started_at')->first();if(!$period)return;$vehicle->tireSets->each(function($set)use($period){$set->setRelation('inspections',$set->inspections->filter(fn($inspection)=>$inspection->inspected_at&&$inspection->inspected_at->gte($period->started_at)&&(!$period->ended_at||$inspection->inspected_at->lte($period->ended_at)))->values());});});
         $services = ServiceProduct::where('organization_id', $customer->organization_id)->where('active', true)->orderBy('name')->get();
         $preferredVehicleId = (int) session('portal_preferred_vehicle_id', 0);
         $preferredServiceId = optional($services->first(fn ($service) => preg_match('/dekk|hjul|skift|monter/i', $service->name)))->id;

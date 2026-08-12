@@ -22,7 +22,7 @@ class HotelAgreementController extends Controller
         $query=HotelAgreement::query()->with(['customer','vehicle','tireSet.storageLocation'])->where('organization_id',$org);
         if(in_array($request->query('status'),['draft','active','paused','ended'],true))$query->where('status',$request->query('status'));
         if($request->query('filter')==='renewing')$query->where('status','active')->whereBetween('renews_on',[today(),today()->addDays(60)]);
-        return view('hotel-agreements.index',['agreements'=>$query->latest()->paginate(40)->withQueryString(),'customers'=>Customer::with('vehicles.tireSets')->where('organization_id',$org)->orderBy('name')->get(),'hotelServices'=>ServiceProduct::where('organization_id',$org)->where('category','storage')->where('active',true)->get(),'counts'=>HotelAgreement::where('organization_id',$org)->selectRaw('status,count(*) total')->groupBy('status')->pluck('total','status')]);
+        return view('hotel-agreements.index',['agreements'=>$query->latest()->paginate(40)->withQueryString(),'counts'=>HotelAgreement::where('organization_id',$org)->selectRaw('status,count(*) total')->groupBy('status')->pluck('total','status')]);
     }
 
     public function store(Request $request): RedirectResponse

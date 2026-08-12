@@ -104,6 +104,17 @@ class OperationsController extends Controller
         return view('customers.show',compact('customer','agreements'));
     }
 
+    public function vehicleHistory(Request $request, Vehicle $vehicle): View
+    {
+        abort_unless((int)$vehicle->organization_id===(int)$request->user()->organization_id,404);
+        $vehicle->load(['customer','ownershipPeriods.customer','tireSets.storageLocation','tireSets.inspections.measurements']);
+        $bookings=Booking::with('customer')->where('organization_id',$vehicle->organization_id)->where('vehicle_id',$vehicle->id)->latest('starts_at')->get();
+        $quotes=\App\Models\Quote::with('customer')->where('organization_id',$vehicle->organization_id)->where('vehicle_id',$vehicle->id)->latest()->get();
+        $orders=\App\Models\WorkOrder::with(['customer','tasks'])->where('organization_id',$vehicle->organization_id)->where('vehicle_id',$vehicle->id)->latest()->get();
+        $agreements=\App\Models\HotelAgreement::with('customer')->where('organization_id',$vehicle->organization_id)->where('vehicle_id',$vehicle->id)->latest()->get();
+        return view('vehicles.history',compact('vehicle','bookings','quotes','orders','agreements'));
+    }
+
     public function exportCustomer(Request $request, Customer $customer): StreamedResponse
     {
         abort_unless($customer->organization_id===$request->user()->organization_id,404);abort_unless(in_array($request->user()->role,['owner','admin','manager'],true),403);$customer->load(['vehicles.tireSets.inspections.measurements','bookings.services','quotes.items','workOrders.tasks','conversations']);DB::table('audit_logs')->insert(['organization_id'=>$customer->organization_id,'user_id'=>$request->user()->id,'action'=>'customer.data.exported','subject_type'=>Customer::class,'subject_id'=>$customer->id,'ip_address'=>$request->ip(),'created_at'=>now()]);$json=json_encode(['exported_at'=>now()->toIso8601String(),'customer'=>$customer->toArray()],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);return response()->streamDownload(fn()=>print($json),'kunde-'.$customer->customer_number.'.json',['Content-Type'=>'application/json; charset=UTF-8']);
@@ -198,10 +209,17 @@ class OperationsController extends Controller
         $data = $request->validate(['registration_number' => ['required', 'string', 'alpha_num', 'max:20'], 'make' => ['nullable', 'string', 'max:100'], 'model' => ['nullable', 'string', 'max:100'], 'model_year' => ['nullable', 'integer', 'between:1900,2100'], 'mileage' => ['nullable', 'integer', 'min:0'], 'vin' => ['nullable', 'string', 'max:32'], 'recommended_tire_size' => ['nullable', 'string', 'max:100'], 'uses_tire_hotel' => ['nullable', 'boolean']]);
         $usesTireHotel = (bool) ($data['uses_tire_hotel'] ?? false);
         unset($data['uses_tire_hotel']);
-        if(Vehicle::withTrashed()->where('organization_id',$customer->organization_id)->where('registration_number',$data['registration_number'])->exists())return back()->withErrors(['registration_number'=>'Registreringsnummeret finnes allerede i virksomheten. Flytt eksisterende kjøretøy til denne kunden i stedet.'])->withInput();
+        $existing=Vehicle::with('customer')->where('organization_id',$customer->organization_id)->where('registration_number',$data['registration_number'])->first();
+        if($existing){
+            if(!$request->boolean('transfer_existing'))return back()->withErrors(['registration_number'=>$data['registration_number'].' er registrert på '.$existing->customer->name.'. Du kan flytte bilen til '.$customer->name.' uten å miste historikken.'])->withInput()->with('existing_vehicle',['id'=>$existing->id,'customer'=>$existing->customer->name,'registration_number'=>$existing->registration_number]);
+            abort_unless((int)$request->integer('existing_vehicle_id')===(int)$existing->id,422);
+            $this->moveVehicleOwnership($existing,$customer,$request);
+            return redirect()->route('customers.show',$customer)->with('success',$existing->registration_number.' er flyttet til '.$customer->name.'. Bilens historikk er bevart og avgrenses etter eierperiode i kundeportalen.');
+        }
         try {
             DB::transaction(function () use ($data, $customer, $usesTireHotel): void {
                 $vehicle = Vehicle::create([...$data, 'public_id' => (string) Str::uuid(), 'organization_id' => $customer->organization_id, 'customer_id' => $customer->id]);
+                \App\Models\VehicleOwnershipPeriod::create(['organization_id'=>$customer->organization_id,'vehicle_id'=>$vehicle->id,'customer_id'=>$customer->id,'started_at'=>now(),'changed_by'=>auth()->id()]);
                 foreach ($usesTireHotel ? ['summer', 'winter'] : [] as $season) {
                     TireSet::create([
                         'public_id' => (string) Str::uuid(),
@@ -234,8 +252,22 @@ class OperationsController extends Controller
         $data=$request->validate(['new_customer_id'=>['required','integer',Rule::exists('customers','id')->where(fn($q)=>$q->where('organization_id',$org)->whereNull('deleted_at'))]]);
         if((int)$data['new_customer_id']===(int)$customer->id)return back()->withErrors(['new_customer_id'=>'Velg en annen kunde.']);
         $newCustomer=Customer::where('organization_id',$org)->findOrFail($data['new_customer_id']);
-        DB::transaction(function()use($vehicle,$customer,$newCustomer,$request,$org){$vehicle->update(['customer_id'=>$newCustomer->id]);\App\Models\HotelAgreement::where('organization_id',$org)->where('vehicle_id',$vehicle->id)->whereIn('status',['draft','active','paused'])->update(['customer_id'=>$newCustomer->id,'updated_at'=>now()]);DB::table('audit_logs')->insert(['organization_id'=>$org,'user_id'=>$request->user()->id,'action'=>'vehicle.ownership.transferred','subject_type'=>Vehicle::class,'subject_id'=>$vehicle->id,'ip_address'=>$request->ip(),'metadata'=>json_encode(['registration_number'=>$vehicle->registration_number,'from_customer_id'=>$customer->id,'to_customer_id'=>$newCustomer->id,'active_agreements_transferred'=>true]),'created_at'=>now()]);});
-        return redirect()->route('customers.show',$newCustomer)->with('success',$vehicle->registration_number.' er flyttet til '.$newCustomer->name.'. Hjulsett og aktive hotellavtaler fulgte bilen.');
+        $this->moveVehicleOwnership($vehicle,$newCustomer,$request);
+        return redirect()->route('customers.show',$newCustomer)->with('success',$vehicle->registration_number.' er flyttet til '.$newCustomer->name.'. Bil- og hjulhistorikken er bevart, mens kundehistorikken er avgrenset etter eierperiode.');
+    }
+
+    private function moveVehicleOwnership(Vehicle $vehicle, Customer $newCustomer, Request $request): void
+    {
+        $oldCustomerId=(int)$vehicle->customer_id;$changedAt=now();$org=(int)$vehicle->organization_id;
+        if($oldCustomerId===(int)$newCustomer->id)return;
+        DB::transaction(function()use($vehicle,$newCustomer,$request,$oldCustomerId,$changedAt,$org){
+            \App\Models\VehicleOwnershipPeriod::where('vehicle_id',$vehicle->id)->whereNull('ended_at')->update(['ended_at'=>$changedAt,'updated_at'=>$changedAt]);
+            \App\Models\VehicleOwnershipPeriod::create(['organization_id'=>$org,'vehicle_id'=>$vehicle->id,'customer_id'=>$newCustomer->id,'started_at'=>$changedAt,'changed_by'=>$request->user()->id]);
+            \App\Models\HotelAgreement::where('organization_id',$org)->where('vehicle_id',$vehicle->id)->whereIn('status',['draft','active','paused'])->update(['status'=>'ended','ends_on'=>today(),'updated_at'=>$changedAt]);
+            $vehicle->update(['customer_id'=>$newCustomer->id]);
+            DB::table('audit_logs')->insert(['organization_id'=>$org,'user_id'=>$request->user()->id,'action'=>'vehicle.ownership.transferred','subject_type'=>Vehicle::class,'subject_id'=>$vehicle->id,'ip_address'=>$request->ip(),'metadata'=>json_encode(['registration_number'=>$vehicle->registration_number,'from_customer_id'=>$oldCustomerId,'to_customer_id'=>$newCustomer->id,'history_preserved'=>true]),'created_at'=>$changedAt]);
+        });
+        $vehicle->tireSets()->whereIn('status',['received','stored','picked','workshop'])->get()->each(fn($set)=>app(\App\Services\TireHotelService::class)->ensureAgreement($set));
     }
 
     public function archiveVehicle(Request $request, Customer $customer, Vehicle $vehicle): RedirectResponse

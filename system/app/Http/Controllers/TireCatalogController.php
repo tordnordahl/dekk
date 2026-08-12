@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TireProduct;
 use App\Services\TabularImportReader;
+use App\Services\TireSizeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,10 @@ class TireCatalogController extends Controller
     {
         $org = $request->user()->organization_id;
         $query = TireProduct::where('organization_id', $org);
-        if ($q = trim((string) $request->query('q'))) $query->where(fn ($x) => $x->where('sku','like',"%{$q}%")->orWhere('brand','like',"%{$q}%")->orWhere('model','like',"%{$q}%")->orWhere('size','like',"%{$q}%"));
+        if ($q = trim((string) $request->query('q'))) {
+            $sizeKey=app(TireSizeService::class)->numericKey($q);
+            $query->where(function($x)use($q,$sizeKey){$x->where('sku','like',"%{$q}%")->orWhere('brand','like',"%{$q}%")->orWhere('model','like',"%{$q}%")->orWhere('size','like',"%{$q}%");if(strlen($sizeKey)>=5)$x->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(size), ' ', ''), '/', ''), 'R', ''), '-', ''), '.', '') LIKE ?",['%'.$sizeKey.'%']);});
+        }
         if (in_array($request->query('season'), ['summer','winter','all_season'], true)) $query->where('season', $request->query('season'));
         if ($request->query('stock') === 'available') $query->where('stock_quantity','>',0);
         if ($request->query('stock') === 'empty') $query->where('stock_quantity',0);
@@ -68,7 +72,7 @@ class TireCatalogController extends Controller
 
     private function importRows(array $rows,int $org):array
     {
-        $imported=0;$errors=[];DB::transaction(function()use($rows,$org,&$imported,&$errors){foreach($rows as$i=>$row){try{$sku=strtoupper(trim((string)($row['sku']??'')));$brand=trim((string)($row['brand']??''));$model=trim((string)($row['model']??''));$size=strtoupper(preg_replace('/\s+/',' ',trim((string)($row['size']??''))));$season=$this->season($row['season']??'');$price=$this->number($row['price']??null);$cost=filled($row['cost']??null)?$this->number($row['cost']):null;$stock=(int)$this->number($row['stock_quantity']??0);if($sku===''||$brand===''||$model===''||$size===''||!$season||$price<0||$stock<0)throw new \RuntimeException('mangler eller har ugyldige obligatoriske felt');TireProduct::updateOrCreate(['organization_id'=>$org,'sku'=>$sku],['public_id'=>(string)(TireProduct::withTrashed()->where('organization_id',$org)->where('sku',$sku)->value('public_id')?:Str::uuid()),'brand'=>$brand,'model'=>$model,'size'=>$size,'season'=>$season,'studded'=>in_array(mb_strtolower(trim((string)($row['studded']??''))),['1','ja','yes','true','pigg'],true),'price_cents'=>(int)round($price*100),'cost_cents'=>$cost===null?null:(int)round($cost*100),'stock_quantity'=>$stock,'active'=>true,'deleted_at'=>null]);$imported++;}catch(\Throwable$e){if(count($errors)<50)$errors[]='Rad '.($i+1).': '.$e->getMessage();}}});return ['imported'=>$imported,'failed'=>count($rows)-$imported,'errors'=>$errors];
+        $imported=0;$errors=[];$sizes=app(TireSizeService::class);DB::transaction(function()use($rows,$org,&$imported,&$errors,$sizes){foreach($rows as$i=>$row){try{$sku=strtoupper(trim((string)($row['sku']??'')));$brand=trim((string)($row['brand']??''));$model=trim((string)($row['model']??''));$size=$sizes->format($row['size']??'');$season=$this->season($row['season']??'');$price=$this->number($row['price']??null);$cost=filled($row['cost']??null)?$this->number($row['cost']):null;$stock=(int)$this->number($row['stock_quantity']??0);if($sku===''||$brand===''||$model===''||$size===''||!$season||$price<0||$stock<0)throw new \RuntimeException('mangler eller har ugyldige obligatoriske felt');TireProduct::updateOrCreate(['organization_id'=>$org,'sku'=>$sku],['public_id'=>(string)(TireProduct::withTrashed()->where('organization_id',$org)->where('sku',$sku)->value('public_id')?:Str::uuid()),'brand'=>$brand,'model'=>$model,'size'=>$size,'season'=>$season,'studded'=>in_array(mb_strtolower(trim((string)($row['studded']??''))),['1','ja','yes','true','pigg'],true),'price_cents'=>(int)round($price*100),'cost_cents'=>$cost===null?null:(int)round($cost*100),'stock_quantity'=>$stock,'active'=>true,'deleted_at'=>null]);$imported++;}catch(\Throwable$e){if(count($errors)<50)$errors[]='Rad '.($i+1).': '.$e->getMessage();}}});return ['imported'=>$imported,'failed'=>count($rows)-$imported,'errors'=>$errors];
     }
     private function number(mixed$value):float{$clean=str_replace([' ','kr'],['',''],mb_strtolower(trim((string)$value)));if(str_contains($clean,',')&&str_contains($clean,'.')){$clean=strrpos($clean,',')>strrpos($clean,'.')?str_replace(',','.',str_replace('.','',$clean)):str_replace(',','',$clean);}elseif(str_contains($clean,','))$clean=str_replace(',','.',$clean);if(!is_numeric($clean))throw new \RuntimeException('ugyldig pris eller lagerantall');return(float)$clean;}
     private function season(mixed$value):?string{return match(mb_strtolower(trim((string)$value))){'summer','sommer'=>'summer','winter','vinter'=>'winter','all_season','helår','helaar','helars'=>'all_season',default=>null};}
