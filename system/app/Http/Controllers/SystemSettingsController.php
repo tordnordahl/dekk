@@ -63,7 +63,7 @@ class SystemSettingsController extends Controller
     public function savePhoneDirectory(Request $request): RedirectResponse
     {
         abort_unless($request->user()->is_super_admin,403);
-        $data=$request->validate(['enabled'=>['nullable','boolean'],'endpoint'=>['required','url:http,https','max:1000'],'auth_header'=>['required','regex:/^[A-Za-z0-9-]{1,80}$/'],'api_key'=>['nullable','string','max:2000']]);
+        $data=$request->validate(['enabled'=>['nullable','boolean'],'endpoint'=>['required','string','max:1000',function(string $attribute,mixed $value,\Closure $fail){$template=(string)$value;if(substr_count($template,'{phone}')>1){$fail('Endepunktet kan bare inneholde én {phone}-plassholder.');return;}$testUrl=str_replace('{phone}','99999999',$template);if(!filter_var($testUrl,FILTER_VALIDATE_URL)||strtolower((string)parse_url($testUrl,PHP_URL_SCHEME))!=='https')$fail('Endepunktet må være en gyldig HTTPS-adresse, eventuelt med {phone}.');}],'auth_header'=>['required','regex:/^[A-Za-z0-9-]{1,80}$/'],'api_key'=>['nullable','string','max:2000']]);
         $existing=app(\App\Services\PhoneDirectory1881Service::class)->settings();
         if(blank($data['api_key']??null))$data['api_key']=$existing['api_key']??null;
         $data['enabled']=$request->boolean('enabled');
