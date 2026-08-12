@@ -77,6 +77,7 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly'])->gr
     Route::view('/hjelp', 'help.index')->name('help');
     Route::get('/krever-handling', [ActionCenterController::class, 'index'])->name('actions');
     Route::put('/krever-handling/hjulsett/{tireSet}', [ActionCenterController::class, 'updateTireSet'])->name('actions.tire-set.update');
+    Route::post('/krever-handling/{kind}/{id}', [ActionCenterController::class, 'resolve'])->where('kind','booking|message|agreement|count')->whereNumber('id')->name('actions.resolve');
     Route::get('/statistikk', [StatisticsController::class, 'index'])->name('statistics');
     Route::get('/min-arbeidsdag', [WorkdayController::class, 'index'])->name('workday');
     Route::patch('/min-arbeidsdag/hjulsett/{tireSet}', [WorkdayController::class, 'move'])->name('workday.move');

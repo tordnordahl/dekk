@@ -86,6 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
     form?.addEventListener('submit', event => { if (!currentIsValid()) event.preventDefault(); });
     if (dialog?.dataset.openId) window.setTimeout(() => openTire(dialog.dataset.openId), 0);
 
+    document.querySelectorAll('[data-action-dialog-open]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.actionDialogOpen)?.showModal()));
+    document.querySelectorAll('[data-action-dialog-close]').forEach(button => button.addEventListener('click', () => button.closest('dialog')?.close()));
+    document.querySelectorAll('.action-quick-dialog').forEach(modal => modal.addEventListener('click', event => { if (event.target === modal) modal.close(); }));
+
     const labelModal = document.querySelector('[data-action-label-modal]');
     const labelFrame = document.querySelector('[data-action-label-frame]');
     document.querySelector('[data-action-label-preview]')?.addEventListener('click', event => {

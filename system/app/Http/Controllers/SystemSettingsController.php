@@ -37,16 +37,20 @@ class SystemSettingsController extends Controller
     {
         abort_unless($request->user()->is_super_admin, 403);
         $data = $request->validate([
-            'transport' => ['required','in:smtp,sendmail,log'], 'host' => ['nullable','string','max:255'],
-            'port' => ['nullable','integer','min:1','max:65535'], 'security' => ['required','in:tls,ssl,none'],
+            'transport' => ['required','in:smtp,native,log'], 'host' => ['nullable','string','max:255'],
+            'port' => ['nullable','integer','min:1','max:65535'], 'security' => ['nullable','in:tls,ssl,none'],
             'username' => ['nullable','string','max:255'], 'password' => ['nullable','string','max:1000'],
             'from_address' => ['required','email','max:255'], 'from_name' => ['required','string','max:255'],
             'messages_per_minute' => ['required','integer','min:1','max:600'],
         ]);
         $existing = app(MailConfigurationService::class)->serverSettings();
-        if (blank($data['password'] ?? null)) $data['password'] = $existing['password'] ?? null;
+        if ($data['transport'] === 'native') {
+            $data = array_merge($data, ['host'=>null,'port'=>null,'security'=>'none','username'=>null,'password'=>null,'messages_per_minute'=>60]);
+        } elseif ($data['transport'] === 'log') {
+            $data = array_merge($data, ['host'=>null,'port'=>null,'security'=>'none','username'=>null,'password'=>null]);
+        } elseif (blank($data['password'] ?? null)) $data['password'] = $existing['password'] ?? null;
         PlatformSetting::updateOrCreate(['key'=>'mail.server'], ['encrypted_value'=>Crypt::encryptString(json_encode($data, JSON_THROW_ON_ERROR)),'updated_by'=>$request->user()->id]);
-        $this->audit($request, 'platform.mail.updated', ['transport'=>$data['transport'],'host'=>$data['host'],'port'=>$data['port']]);
+        $this->audit($request, 'platform.mail.updated', ['transport'=>$data['transport'],'host'=>$data['host']??null,'port'=>$data['port']??null]);
         return back()->with('success', 'Serverens e-postinnstillinger er lagret kryptert. Send en test før produksjonsbruk.');
     }
 

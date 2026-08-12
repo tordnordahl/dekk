@@ -44,8 +44,9 @@ class MailConfigurationService
     {
         $server = $this->serverSettings();
         $tenant = $this->tenantSettings($organizationId);
-        $transport = in_array($server['transport'] ?? '', ['smtp', 'sendmail', 'log'], true) ? $server['transport'] : 'log';
+        $transport = ($server['transport'] ?? null) === 'sendmail' ? 'native' : (in_array($server['transport'] ?? '', ['smtp', 'native', 'log'], true) ? $server['transport'] : 'log');
         $scheme = ($server['security'] ?? 'tls') === 'ssl' ? 'smtps' : null;
+        $native = $transport === 'native';
         config([
             'mail.default' => $transport,
             'mail.mailers.smtp.host' => $server['host'] ?? null,
@@ -53,9 +54,9 @@ class MailConfigurationService
             'mail.mailers.smtp.scheme' => $scheme,
             'mail.mailers.smtp.username' => $server['username'] ?? null,
             'mail.mailers.smtp.password' => $server['password'] ?? null,
-            'mail.from.address' => $tenant['from_address'] ?? $server['from_address'] ?? 'noreply@localhost',
-            'mail.from.name' => $tenant['from_name'] ?? $server['from_name'] ?? 'DekkPilot',
-            'mail.reply_to.address' => $tenant['reply_to'] ?? null,
+            'mail.from.address' => $native ? ($server['from_address'] ?? 'noreply@localhost') : ($tenant['from_address'] ?? $server['from_address'] ?? 'noreply@localhost'),
+            'mail.from.name' => $native ? ($server['from_name'] ?? 'DekkPilot') : ($tenant['from_name'] ?? $server['from_name'] ?? 'DekkPilot'),
+            'mail.reply_to.address' => $tenant['reply_to'] ?? ($native ? ($tenant['from_address'] ?? null) : null),
         ]);
         Mail::purge();
         return ['server' => $server, 'tenant' => $tenant, 'active_from' => config('mail.from.address')];
