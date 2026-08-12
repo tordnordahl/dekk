@@ -44,11 +44,15 @@ class PhoneDirectory1881Service
         $payload=$response->json();
         $record=$this->firstRecord(is_array($payload)?$payload:[]);
         if(!$record)return [];
+        $street=$this->value($record,['geography.address.street']);
+        $houseNumber=$this->value($record,['geography.address.houseNumber']);
+        $entrance=$this->value($record,['geography.address.entrance']);
+        $structuredAddress=trim(collect([$street,$houseNumber,$entrance])->filter()->join(' '));
         return [
             'name'=>$this->value($record,['name','fullName','displayName','person.name','contact.name']),
-            'address'=>$this->value($record,['address','streetAddress','address.street','postalAddress.street','contact.address']),
-            'postal_code'=>$this->value($record,['postalCode','zipCode','zip','address.postalCode','postalAddress.postalCode']),
-            'city'=>$this->value($record,['city','postalCity','address.city','postalAddress.city']),
+            'address'=>$structuredAddress?:$this->value($record,['streetAddress','address.street','postalAddress.street','contact.address']),
+            'postal_code'=>$this->value($record,['geography.address.postCode','postalCode','zipCode','zip','address.postalCode','postalAddress.postalCode']),
+            'city'=>$this->value($record,['geography.address.postArea','city','postalCity','address.city','postalAddress.city']),
             'phone'=>$normalized,
         ];
     }
