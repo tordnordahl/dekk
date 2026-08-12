@@ -1,0 +1,12 @@
+<x-layouts.app title="Abonnement · DekkPilot" heading="Abonnement">
+<section class="grid form-grid"><article class="panel">
+<p class="eyebrow">DEKKPILOT FULL TILGANG</p><h2>119 kr per måned</h2>
+<p>Kontoen er aktiv. Alle funksjoner, integrasjoner, kunder, ansatte, bookinger og hjulsett er inkludert.</p>
+<div class="usage-note"><strong>SMS faktureres etter bruk</strong><span>SMS kommer i tillegg til månedsprisen. E-post og bruk av systemet er inkludert.</span></div>
+<div class="accounting-stats"><span>Status <strong>Aktivt</strong></span><span>Fakturering <strong>Kun faktura</strong></span><span>SMS denne måneden <strong>{{ number_format($smsUsage,0,',',' ') }}</strong></span></div><p class="muted">DekkPilot teller bare SMS som Twilio faktisk har akseptert for sending. SMS kommer på fakturagrunnlaget etter bruk.</p>
+@if($organization->billing_discount_percent === 100 && $organization->billing_discount_ends_at)
+<div class="usage-note"><strong>100 % rabatt aktiv</strong><span>{{ $organization->billing_discount_code }} gjelder til og med {{ $organization->billing_discount_ends_at->format('d.m.Y') }}.</span></div>
+@endif
+</article><aside class="panel"><p class="eyebrow">INGEN HANDLING NØDVENDIG</p><h2>Du kan bruke DekkPilot nå</h2><p>Betalingsinformasjon skal ikke legges inn ennå. Når faktureringen er klar, får virksomhetens eier tydelig beskjed før første faktura.</p><p>Abonnementet har ingen bindingstid.</p></aside></section>
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">FAKTURAGRUNNLAG</p><h2>Månedsoversikt</h2></div></div><div class="table-wrap"><table><thead><tr><th>Periode</th><th>Abonnement</th><th>SMS</th><th>Rabatt</th><th>Totalt</th><th>Status</th></tr></thead><tbody>@forelse($statements as $statement)<tr><td>{{ $statement->period_start->translatedFormat('F Y') }}</td><td>{{ number_format($statement->subscription_cents/100,2,',',' ') }} kr</td><td>{{ $statement->sms_quantity }} stk.<small>{{ number_format($statement->sms_total_cents/100,2,',',' ') }} kr</small></td><td>{{ number_format($statement->discount_cents/100,2,',',' ') }} kr</td><td><strong>{{ number_format($statement->total_cents/100,2,',',' ') }} kr</strong></td><td><span class="status {{ $statement->status==='invoiced'?'completed':'in_progress' }}">{{ ['draft'=>'Utkast','ready'=>'Klart','invoiced'=>'Fakturert','void'=>'Annullert'][$statement->status] }}</span></td></tr>@empty<tr><td colspan="6" class="empty">Første grunnlag opprettes automatisk etter månedsslutt.</td></tr>@endforelse</tbody></table></div></section>
+</x-layouts.app>

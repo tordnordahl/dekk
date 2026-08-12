@@ -1,0 +1,8 @@
+KONFIDENSIELT – IKKE LAST OPP TIL OFFENTLIG WEBOMRÅDE
+
+Mappen inneholder kjøper-, overtakelses-, drifts- og utviklerdokumentasjon for
+DekkPilot. Den kan deles kontrollert med seriøse kjøpere og deres rådgivere,
+fortrinnsvis etter konfidensialitetsavtale.
+
+Åpne index.html lokalt. .htaccess blokkerer nettilgang dersom mappen ved en feil
+blir kopiert til en Apache-server, men mappen skal likevel holdes utenfor deploy.

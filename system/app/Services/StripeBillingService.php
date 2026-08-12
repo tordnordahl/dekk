@@ -1,0 +1,10 @@
+<?php
+namespace App\Services;use App\Models\Organization;use Illuminate\Support\Facades\Http;use RuntimeException;
+class StripeBillingService
+{
+ public function checkout(Organization $org,string $email):string{$this->configured(true);$data=['mode'=>'subscription','line_items[0][price]'=>config('services.stripe.price_id'),'line_items[0][quantity]'=>1,'success_url'=>route('billing.success').'?session_id={CHECKOUT_SESSION_ID}','cancel_url'=>route('billing'),'client_reference_id'=>(string)$org->id,'metadata[organization_id]'=>(string)$org->id,'subscription_data[metadata][organization_id]'=>(string)$org->id,'allow_promotion_codes'=>'false'];if($org->stripe_customer_id)$data['customer']=$org->stripe_customer_id;else $data['customer_email']=$email;$response=$this->post('/checkout/sessions',$data);return (string)$response['url'];}
+ public function portal(Organization $org):string{if(!$org->stripe_customer_id)throw new RuntimeException('Ingen Stripe-kunde er registrert ennå.');$response=$this->post('/billing_portal/sessions',['customer'=>$org->stripe_customer_id,'return_url'=>route('billing')]);return (string)$response['url'];}
+ public function retrieveSession(string $id):array{$this->configured(true);$response=Http::withBasicAuth((string)config('services.stripe.secret'),'')->acceptJson()->timeout(20)->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($id));if(!$response->successful())throw new RuntimeException('Kunne ikke kontrollere betalingen.');return $response->json();}
+ private function post(string $path,array $data):array{$response=Http::withBasicAuth((string)config('services.stripe.secret'),'')->asForm()->acceptJson()->timeout(20)->post('https://api.stripe.com/v1'.$path,$data);if(!$response->successful())throw new RuntimeException((string)($response->json('error.message')?:'Stripe svarte med HTTP '.$response->status().'.'));return $response->json();}
+ private function configured(bool $price=false):void{if(blank(config('services.stripe.secret'))||($price&&blank(config('services.stripe.price_id'))))throw new RuntimeException('Stripe er ikke ferdig konfigurert av systemeier.');}
+}

@@ -1,0 +1,8 @@
+<x-layouts.app title="Systemoppdatering · DekkPilot" heading="Systemoppdatering">
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">DATABASESTATUS</p><h2>{{ $updateStatus['current'] ? 'Alt er oppdatert' : 'Oppdatering tilgjengelig' }}</h2></div><span class="status {{ $updateStatus['current'] ? 'completed' : 'in_progress' }}">{{ $updateStatus['current'] ? 'Oppdatert' : count($updateStatus['pending']).' venter' }}</span></div>
+@if($updateStatus['available'])
+<p class="muted">{{ $updateStatus['ran_count'] }} migreringer er allerede installert. Kontrollen endrer aldri data.</p>
+@if($updateStatus['pending'])<div class="update-list"><strong>Disse databaseoppdateringene venter:</strong><ul>@foreach($updateStatus['pending'] as $migration)<li><code>{{ $migration }}</code></li>@endforeach</ul></div><div class="notice warning"><strong>Før du oppdaterer</strong><p>Ta en fersk sikkerhetskopi av databasen på produksjonsserveren. Ikke lukk vinduet mens oppdateringen kjører.</p></div><form method="post" action="{{ route('superadmin.system-update.run') }}">@csrf<button class="button">Installer og fullfør oppdateringen</button></form>@else<div class="empty-state"><strong>✓ Ingen databaseoppdateringer venter</strong><span>Har du nettopp lastet opp nye programfiler, fullfører knappen nedenfor oppdateringen ved å tømme gamle systembuffere.</span></div><form method="post" action="{{ route('superadmin.system-update.run') }}">@csrf<button class="button ghost">Fullfør filoppdatering</button></form>@endif
+@else<div class="notice danger"><strong>Statuskontrollen feilet</strong><p>{{ $updateStatus['error'] }}</p></div>@endif
+<p><a href="{{ route('superadmin') }}">← Tilbake til plattformoversikten</a></p></section>
+</x-layouts.app>

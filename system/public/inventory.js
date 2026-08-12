@@ -1,0 +1,39 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const boxes = [...document.querySelectorAll('[data-label-id]')], all = document.querySelector('[data-select-all]'), batch = document.querySelector('[data-print-selected]');
+  const modal = document.querySelector('[data-label-modal]'), frame = document.querySelector('[data-label-frame]');
+  const openLabel = url => { if (!modal || !frame || !url) return; frame.src = url + (url.includes('?') ? '&' : '?') + 'embed=1'; modal.showModal(); };
+  const sync = () => { const ids = boxes.filter(x => x.checked).map(x => x.value); if (batch) { batch.disabled = !ids.length; batch.dataset.ids = ids.join(','); } if (all) all.checked = ids.length === boxes.length && boxes.length > 0; };
+  all?.addEventListener('change', () => { boxes.forEach(x => x.checked = all.checked); sync(); }); boxes.forEach(x => x.addEventListener('change', sync));
+  document.querySelectorAll('[data-label-preview]').forEach(x => x.addEventListener('click', () => openLabel(x.dataset.labelPreview)));
+  batch?.addEventListener('click', () => openLabel(batch.dataset.labelBase + '?ids=' + encodeURIComponent(batch.dataset.ids)));
+  document.querySelectorAll('[data-label-close]').forEach(x => x.addEventListener('click', () => modal.close())); modal?.addEventListener('click', e => { if (e.target === modal) modal.close(); });
+  document.querySelector('[data-label-print]')?.addEventListener('click', async () => { const ids=new URL(frame.src).searchParams.get('ids')?.split(',').filter(Boolean)||[];if(ids.length)await fetch(document.querySelector('meta[name="csrf-token"]')?.content?`${window.location.pathname.replace(/\/index\.php.*$/,'/index.php')}/lager/etiketter/utskrevet`:'' ,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content,'Accept':'application/json'},body:JSON.stringify({ids})});frame.contentWindow?.print(); });
+  const workspace = document.querySelector('.inventory-workspace'), intake = workspace?.querySelector(':scope > aside');
+  if (intake) { intake.classList.add('intake-drawer'); const close = document.createElement('button'); close.type = 'button'; close.className = 'intake-close'; close.textContent = '×'; close.setAttribute('aria-label','Lukk'); intake.prepend(close); close.addEventListener('click', () => intake.classList.remove('open')); intake.addEventListener('click', e => { if (e.target === intake) intake.classList.remove('open'); }); }
+  document.querySelector('[data-intake-open]')?.addEventListener('click', () => intake?.classList.add('open'));
+  const intakeForm = document.querySelector('[data-intake-form]');
+  if (intakeForm) {
+    const picker = intakeForm.querySelector('[data-intake-customer-picker]'), search = picker?.querySelector('[data-intake-customer-search]'), results = picker?.querySelector('[data-intake-search-results]'), status = picker?.querySelector('[data-intake-search-status]'), selected = picker?.querySelector('[data-intake-selected]'), vehicleId = picker?.querySelector('[data-intake-vehicle-id]'), registration = picker?.querySelector('[data-intake-selected-registration]'), customerName = picker?.querySelector('[data-intake-selected-customer]'), error = picker?.querySelector('[data-intake-vehicle-error]');
+    let searchTimer, searchController;
+    const chooseVehicle = (customer, vehicle) => { vehicleId.value = String(vehicle.id); registration.textContent = String(vehicle.registration_number || 'Uten reg.nr.'); customerName.textContent = [customer.name, vehicle.make, vehicle.model].filter(Boolean).join(' · '); selected.hidden = false; search.closest('label').hidden = true; results.replaceChildren(); status.textContent = ''; error.textContent = ''; };
+    const renderResults = customers => { results.replaceChildren(); const typed = String(search.value || '').replace(/\s+/g, '').toUpperCase(); let count = 0; customers.forEach(customer => { const vehicles = Array.isArray(customer.vehicles) ? customer.vehicles : []; vehicles.sort((a,b) => Number(String(b.registration_number||'').replace(/\s+/g,'').toUpperCase().includes(typed)) - Number(String(a.registration_number||'').replace(/\s+/g,'').toUpperCase().includes(typed))); vehicles.forEach(vehicle => { count++; const button = document.createElement('button'); button.type = 'button'; button.className = 'intake-search-result'; const plate = document.createElement('strong'), detail = document.createElement('span'); plate.textContent = String(vehicle.registration_number || 'Uten reg.nr.'); detail.textContent = [customer.name, vehicle.make, vehicle.model].filter(Boolean).join(' · '); button.append(plate, detail); button.addEventListener('click', () => chooseVehicle(customer, vehicle)); results.append(button); }); }); status.textContent = count ? `${count} ${count === 1 ? 'bil funnet' : 'biler funnet'} – velg riktig bil.` : 'Ingen biler matcher søket.'; };
+    const runVehicleSearch = async () => { const query = search.value.trim(); if (query.length < 2) { results.replaceChildren(); status.textContent = 'Skriv minst to tegn.'; return; } searchController?.abort(); searchController = new AbortController(); status.textContent = 'Søker …'; try { const url = new URL(intakeForm.dataset.customerSearchUrl, window.location.href); url.searchParams.set('q', query); const response = await fetch(url, {headers:{Accept:'application/json'}, credentials:'same-origin', signal:searchController.signal}); if (!response.ok) throw new Error('search'); const payload = await response.json(); renderResults(Array.isArray(payload.data) ? payload.data : []); } catch (exception) { if (exception.name !== 'AbortError') status.textContent = 'Søket kunne ikke utføres. Prøv igjen.'; } };
+    search?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runVehicleSearch, 250); });
+    picker?.querySelector('[data-intake-change]')?.addEventListener('click', () => { vehicleId.value = ''; selected.hidden = true; search.closest('label').hidden = false; search.value = ''; status.textContent = 'Skriv minst to tegn, og velg riktig bil.'; search.focus(); });
+    intakeForm.addEventListener('submit', event => { if (!vehicleId.value) { event.preventDefault(); error.textContent = 'Søk opp og velg riktig bil før hjulsettet lagres.'; search.closest('label').hidden = false; search.focus(); } });
+  }
+  const depths = [...document.querySelectorAll('[data-wheel-depth]')], lowest = document.querySelector('[data-lowest-depth]'), advice = document.querySelector('[data-depth-advice]'), summary = document.querySelector('[data-measurement-summary]'), season = document.querySelector('[data-intake-season]');
+  const updateMeasurements = () => {
+    if (!lowest || !advice || !summary) return;
+    const values = depths.map(input => Number.parseFloat(input.value)).filter(Number.isFinite);
+    summary.classList.remove('attention', 'replace');
+    if (values.length !== 4) { lowest.textContent = `${values.length} av 4 målt`; advice.textContent = 'Alle fire dekk må måles før hjulsettet kan lagres.'; return; }
+    const minimum = Math.min(...values), winter = season?.value === 'winter';
+    lowest.textContent = `${minimum.toFixed(1).replace('.', ',')} mm`;
+    if (minimum < (winter ? 3 : 1.6)) { summary.classList.add('replace'); advice.textContent = `Under lovkravet for ${winter ? 'vinterføre (3 mm)' : 'sommerføre (1,6 mm)'}. Må følges opp.`; }
+    else if (minimum < 4) { summary.classList.add('attention'); advice.textContent = 'Bør følges opp. DekkPilot oppretter automatisk en salgsmulighet.'; }
+    else advice.textContent = 'Målingene ser gode ut.';
+  };
+  depths.forEach(input => input.addEventListener('input', updateMeasurements)); season?.addEventListener('change', updateMeasurements); updateMeasurements();
+  if (depths.some(input => input.value !== '')) intake?.classList.add('open');
+});

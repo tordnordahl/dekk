@@ -1,0 +1,29 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^public/(.*)$ - [F,L]
+    # When the system directory is the document root, serve every public
+    # front-end asset from the single canonical copy in public/. END prevents
+    # the internal rewrite from being processed as a direct /public request.
+    RewriteRule ^(.+\.(?:css|js|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|map))$ public/$1 [END,NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<FilesMatch "^(\.env|composer\.(json|lock)|artisan|phpunit\.xml)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 50M
+    php_value post_max_size 55M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 512M
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+</IfModule>

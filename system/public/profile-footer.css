@@ -1,0 +1,105 @@
+.profile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.sidebar .profile .profile-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.profile-identity > div {
+    min-width: 0;
+    flex: 1;
+}
+
+.profile-help {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #3a5045;
+    border-radius: 50%;
+    color: #a9bbb1;
+    font-size: 14px;
+    font-weight: 850;
+}
+
+.profile-help:hover,
+.profile-help.active {
+    border-color: #62d99a;
+    background: #243d31;
+    color: #fff;
+}
+
+.sidebar .profile .profile-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+    gap: 5px;
+    flex: none;
+}
+
+.profile-actions form {
+    display: block;
+}
+
+.profile-actions .profile-action,
+.profile-actions button {
+    width: 100%;
+    height: 42px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 2px;
+    border-radius: 9px;
+}
+
+.profile-actions span {
+    color: #91a29a;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.profile-actions .super span {
+    color: #f2c563;
+}
+
+.profile-actions .profile-action:hover span,
+.profile-actions button:hover span {
+    color: inherit;
+}
+
+@media (min-width: 651px) and (max-width: 1000px) {
+    .profile {
+        gap: 9px;
+    }
+
+    .sidebar .profile .profile-identity {
+        justify-content: center;
+    }
+
+    .profile-identity > div {
+        display: none;
+    }
+
+    .sidebar .profile .profile-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .profile-actions .profile-action,
+    .profile-actions button {
+        height: 29px;
+    }
+
+    .profile-actions span {
+        display: none;
+    }
+}

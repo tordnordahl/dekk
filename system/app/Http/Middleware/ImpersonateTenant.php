@@ -1,0 +1,3 @@
+<?php
+namespace App\Http\Middleware;use App\Models\Branch;use App\Models\Organization;use Closure;use Illuminate\Http\Request;use Symfony\Component\HttpFoundation\Response;
+class ImpersonateTenant{public function handle(Request $request,Closure $next):Response{$id=$request->session()->get('superadmin_tenant_id');if($id&&$request->user()?->is_super_admin){$org=Organization::find($id);$branch=$org?Branch::where('organization_id',$org->id)->where('active',true)->first():null;if(!$org||!$branch)$request->session()->forget('superadmin_tenant_id');else{$request->user()->setAttribute('organization_id',$org->id);$request->user()->setAttribute('branch_id',$branch->id);$request->attributes->set('impersonated_organization',$org);}}return $next($request);}}

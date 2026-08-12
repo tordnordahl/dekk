@@ -1,0 +1,112 @@
+.sidebar .profile {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+}
+
+.sidebar .profile .profile-identity {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-width: 0;
+    width: 100%;
+}
+
+.sidebar .profile .profile-identity > div {
+    display: block !important;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.sidebar .profile .profile-identity strong {
+    display: block;
+    overflow: hidden;
+    color: #f1f6f3;
+    font-size: 13px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar .profile .profile-identity small {
+    display: block;
+    margin-top: 2px;
+    color: #82948a;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+.sidebar .profile .avatar {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+}
+
+.sidebar .profile .profile-help {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+}
+
+.sidebar .profile .profile-actions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    width: 100%;
+    min-width: 0;
+}
+
+.sidebar .profile .profile-actions form {
+    display: block !important;
+    width: 100%;
+    margin: 0;
+}
+
+.sidebar .profile .profile-actions .profile-action,
+.sidebar .profile .profile-actions button {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    height: 34px !important;
+    min-width: 0;
+    padding: 0 !important;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #91a29a;
+    line-height: 1;
+}
+
+.sidebar .profile .profile-actions .profile-action:hover,
+.sidebar .profile .profile-actions .profile-action:focus-visible,
+.sidebar .profile .profile-actions button:hover,
+.sidebar .profile .profile-actions button:focus-visible {
+    background: #263d32;
+    color: #fff;
+    outline: none;
+}
+
+.sidebar .profile .profile-actions .super {
+    color: #f2c563;
+}
+
+@media (min-width: 651px) and (max-width: 1000px) {
+    .sidebar .profile .profile-identity {
+        justify-content: center !important;
+    }
+
+    .sidebar .profile .profile-identity > div,
+    .sidebar .profile .profile-help {
+        display: none !important;
+    }
+
+    .sidebar .profile .profile-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .sidebar .profile .profile-actions .profile-action,
+    .sidebar .profile .profile-actions button {
+        height: 28px !important;
+    }
+}

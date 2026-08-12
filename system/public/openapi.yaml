@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info:
+  title: DekkPilot API
+  version: 1.0.0
+  description: Stabil API-kontrakt for teknikerapp og godkjente integrasjoner. Alle data isoleres per virksomhet.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /tokens:
+    post:
+      security: []
+      summary: Opprett 30-dagers enhetstoken
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Login'}}}}
+      responses: {'200': {description: Token opprettet}, '401': {description: Ugyldig innlogging}, '422': {description: Valideringsfeil}}
+  /token/current:
+    delete: {summary: Tilbakekall aktivt token, responses: {'204': {description: Tilbakekalt}}}
+  /me:
+    get: {summary: Innlogget bruker, responses: {'200': {description: Bruker}}}
+  /customers:
+    get: {summary: Søkbar kundeliste, responses: {'200': {description: Paginert liste}}}
+  /vehicles:
+    get: {summary: Kjøretøy, responses: {'200': {description: Paginert liste}}}
+  /bookings:
+    get: {summary: Bookinger og timebok, responses: {'200': {description: Paginert liste}}}
+  /workday:
+    get: {summary: Teknikerens dag og klargjøringsliste, responses: {'200': {description: Arbeidsdag}}}
+  /warehouse-map:
+    get: {summary: Lagerkart med kapasitet, responses: {'200': {description: Lagerplasser}}}
+  /tire-sets:
+    get: {summary: Hjulsett, responses: {'200': {description: Paginert liste}}}
+  /tire-sets/scan/{code}:
+    get:
+      summary: Skann én etikett for hele hjulsettet
+      parameters: [{name: code, in: path, required: true, schema: {type: string}}]
+      responses: {'200': {description: Hjulsett}, '404': {description: Ikke funnet}}
+  /tire-sets/{tireSet}/status:
+    patch:
+      summary: Flytt hele hjulsettet i arbeidsflyten
+      parameters: [{$ref: '#/components/parameters/TireSet'}]
+      responses: {'200': {description: Oppdatert}, '403': {description: Mangler workshop.write}}
+  /tire-sets/{tireSet}/inspections:
+    post:
+      summary: Lagre fire hjulmålinger
+      parameters: [{$ref: '#/components/parameters/TireSet'}]
+      responses: {'201': {description: Kontroll opprettet}, '422': {description: Ugyldige målinger}}
+  /work-orders:
+    get: {summary: Arbeidsordrer, responses: {'200': {description: Paginert liste}}}
+  /work-orders/{workOrder}:
+    get:
+      summary: Komplett arbeidsordre
+      parameters: [{$ref: '#/components/parameters/WorkOrder'}]
+      responses: {'200': {description: Arbeidsordre}}
+  /work-orders/{workOrder}/status:
+    patch:
+      summary: Oppdater arbeidsflytstatus
+      parameters: [{$ref: '#/components/parameters/WorkOrder'}]
+      responses: {'200': {description: Oppdatert}, '422': {description: Obligatoriske kontrollpunkt gjenstår}}
+  /work-orders/{workOrder}/tasks/{task}:
+    patch:
+      summary: Fullfør eller åpne kontrollpunkt
+      parameters: [{$ref: '#/components/parameters/WorkOrder'}, {name: task, in: path, required: true, schema: {type: integer}}]
+      responses: {'200': {description: Oppdatert}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer}
+  parameters:
+    TireSet: {name: tireSet, in: path, required: true, schema: {type: integer}}
+    WorkOrder: {name: workOrder, in: path, required: true, schema: {type: integer}}
+  schemas:
+    Login:
+      type: object
+      required: [email, password, device_name]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string, format: password}
+        device_name: {type: string, maxLength: 100}
+        otp_code: {type: string, description: Påkrevd når brukeren har tofaktor aktivert}

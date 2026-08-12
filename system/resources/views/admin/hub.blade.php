@@ -1,0 +1,15 @@
+<x-layouts.app title="Admin · DekkPilot" heading="Administrasjon">
+<section class="panel admin-intro"><p class="eyebrow">KONTROLLSENTER</p><h2>Hva vil du administrere?</h2><p class="muted">Oppsett, integrasjoner og køer er samlet i tydelige arbeidsområder.</p></section>
+<section class="admin-hub-grid">
+  <a class="panel admin-hub-card" href="{{ route('admin.settings') }}"><span class="hub-icon">◎</span><div><h2>Team og drift</h2><p>Ansatte, roller, arbeidsbukker og tidsbruk.</p><strong>{{ $counts['employees'] }} ansatte →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.tires') }}"><span class="hub-icon">◉</span><div><h2>Dekkatalog og varelager</h2><p>Tusenvis av salgsdekk, priser, lagerantall og rask import fra Excel.</p><strong>Åpne dekkatalogen →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.warehouse') }}"><span class="hub-icon">▦</span><div><h2>Lagerkart og plasser</h2><p>Bygg soner, reoler og henteplasser visuelt for raskere logistikk.</p><strong>{{ $counts['locations'] }} aktive plasser →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.settings') }}"><span class="hub-icon">▦</span><div><h2>Tjenester og fastpriser</h2><p>Dekkhotell, dekkskift, reparasjoner og varighet.</p><strong>{{ $counts['services'] }} aktive tjenester →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.imports') }}"><span class="hub-icon">⇩</span><div><h2>Importer og migrer data</h2><p>Flytt kunder, biler og hjulsett fra Excel eller CSV med forhåndsvisning.</p><strong>Start sikker import →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.accounting') }}"><span class="hub-icon">↗</span><div><h2>Regnskap og fakturakø</h2><p>Koble til Fiken eller Tripletex. Velg automatisk eksport eller godkjenn hver jobb manuelt.</p><strong>{{ $counts['exports'] }} venter eller feilet →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.communications') }}"><span class="hub-icon">✉</span><div><h2>E-post og SMS</h2><p>Se utsendelser, feil og kampanjer. SMS faktureres separat etter bruk.</p><strong>{{ $counts['messages'] }} i kø eller feilet →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.system') }}"><span class="hub-icon">⚙</span><div><h2>E-postoppsett{{ auth()->user()->is_super_admin ? ' og backup' : '' }}</h2><p>Velg virksomhetens avsender, test levering{{ auth()->user()->is_super_admin ? ' og administrer serverbackup' : '' }}.</p><strong>Åpne systeminnstillinger →</strong></div></a>
+  <a class="panel admin-hub-card" href="{{ route('admin.security') }}"><span class="hub-icon">⌾</span><div><h2>Sikkerhet og app-tilgang</h2><p>Tofaktor, aktive enheter og sikkerhetslogg.</p><strong>Åpne sikkerhet →</strong></div></a>
+  @if(auth()->user()->role==='owner')<a class="panel admin-hub-card" href="{{ route('billing') }}"><span class="hub-icon">◇</span><div><h2>Abonnement og faktura</h2><p>Se pris, fakturastatus og eventuell rabatt. SMS kommer i tillegg etter bruk.</p><strong>119 kr per måned + SMS-forbruk →</strong></div></a>@endif
+</section>
+</x-layouts.app>

@@ -1,0 +1,1 @@
+document.addEventListener('DOMContentLoaded',()=>{const q=document.querySelector('[data-search]');if(!q)return;const blocks=[...document.querySelectorAll('[data-doc]')];q.addEventListener('input',()=>{const s=q.value.trim().toLocaleLowerCase('nb-NO');blocks.forEach(b=>b.hidden=s!==''&&!b.textContent.toLocaleLowerCase('nb-NO').includes(s))})});

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /system/admin
+Disallow: /system/api
+Sitemap: https://dekkpilot.no/sitemap.xml

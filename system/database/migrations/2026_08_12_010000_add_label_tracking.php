@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration;use Illuminate\Database\Schema\Blueprint;use Illuminate\Support\Facades\Schema;
+return new class extends Migration{public function up():void{Schema::table('tire_sets',fn(Blueprint$t)=>$t->timestamp('label_printed_at')->nullable()->index());Schema::table('service_settings',fn(Blueprint$t)=>$t->boolean('label_reminders_enabled')->default(true));}public function down():void{Schema::table('tire_sets',fn(Blueprint$t)=>$t->dropColumn('label_printed_at'));Schema::table('service_settings',fn(Blueprint$t)=>$t->dropColumn('label_reminders_enabled'));}};
