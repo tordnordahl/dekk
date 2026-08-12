@@ -25,9 +25,10 @@ class ActionCenterController extends Controller
     {
         $org=(int)$request->user()->organization_id;$branch=(int)$request->user()->branch_id;$items=collect();
         $code=strtoupper(trim((string)$request->query('code')));
+        $labelReminders=(bool)(ServiceSetting::where('branch_id',$branch)->value('label_reminders_enabled')??true);
         $tireQuery=TireSet::with(['vehicle.customer','storageLocation','inspections.measurements'])
             ->where('organization_id',$org)->whereNotNull('received_at')->whereNotIn('status',['delivered'])
-            ->where(fn($q)=>$q->whereNull('storage_location_id')->orWhereNull('minimum_tread_depth')->orWhere('wash_status','needed'));
+            ->where(function($q)use($labelReminders){$q->whereNull('storage_location_id')->orWhereNull('minimum_tread_depth')->orWhereIn('wash_status',['not_assessed','needed']);if($labelReminders)$q->orWhereNull('label_printed_at');});
         $tireSets=$tireQuery->limit(75)->get();
         if($code!==''&&!$tireSets->contains('code',$code)){
             $scanned=TireSet::with(['vehicle.customer','storageLocation','inspections.measurements'])->where('organization_id',$org)->where('code',$code)->first();
@@ -39,9 +40,9 @@ class ActionCenterController extends Controller
             if($set->minimum_tread_depth===null)$needs->push('mangler mønsterdybde');
             if(($set->wash_status??'not_assessed')==='not_assessed')$needs->push('vask må vurderes');
             if($set->wash_status==='needed')$needs->push('trenger vask');
+            if($labelReminders&&!$set->label_printed_at)$needs->push('mangler etikett');
             $items->push(['priority'=>1,'type'=>'Hjulsett','title'=>($set->vehicle?->registration_number??$set->code).' · '.($set->vehicle?->customer?->name??'Ukjent kunde'),'detail'=>$needs->join(' · '),'tire_set_id'=>$set->id]);
         }
-        if(ServiceSetting::where('branch_id',$branch)->value('label_reminders_enabled')??true)TireSet::with('vehicle.customer')->where('organization_id',$org)->whereNotNull('received_at')->whereNull('label_printed_at')->whereNotIn('status',['delivered'])->limit(50)->get()->each(fn($set)=>$items->push(['priority'=>2,'type'=>'Etikett','title'=>($set->vehicle?->registration_number??$set->code).' mangler etikett','detail'=>($set->vehicle?->customer?->name??'Ukjent kunde').' · '.$set->code,'url'=>route('inventory',['q'=>$set->code])]));
         InvoiceExport::where('organization_id',$org)->where('status','failed')->limit(50)->get()->each(fn($invoice)=>$items->push(['priority'=>1,'type'=>'Regnskap','title'=>$invoice->reference.' kunne ikke sendes','detail'=>$invoice->last_error,'url'=>route('admin.accounting').'#queue']));
         OutboundMessage::where('organization_id',$org)->where('status','failed')->limit(50)->get()->each(fn($message)=>$items->push(['priority'=>1,'type'=>'Melding','title'=>'Utsending til '.$message->recipient.' feilet','detail'=>$message->last_error,'url'=>route('admin.communications')]));
         Booking::with(['customer','vehicle'])->where('organization_id',$org)->where('branch_id',$branch)->where('confirmation_status','pending')->whereBetween('starts_at',[now(),now()->addDays(7)])->limit(50)->get()->each(fn($booking)=>$items->push(['priority'=>2,'type'=>'Booking','title'=>($booking->vehicle?->registration_number??$booking->customer->name).' venter på bekreftelse','detail'=>$booking->starts_at->format('d.m.Y H:i'),'url'=>route('bookings',['status'=>'scheduled'])]));

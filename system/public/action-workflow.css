@@ -1,0 +1,70 @@
+.action-dialog-section[hidden],
+.action-dialog-footer [hidden] {
+    display: none !important;
+}
+
+.action-dialog-head [data-action-customer-link] {
+    color: #276a50;
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.action-tire-dialog[data-selected-tire] .action-dialog-head {
+    box-shadow: inset 5px 0 #35a16c;
+}
+
+.action-dialog-section.is-current {
+    min-height: 300px;
+    animation: action-step-in .18s ease-out;
+}
+
+.action-label-step {
+    display: grid;
+    align-content: center;
+}
+
+.action-selected-tire {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px;
+    border: 2px solid #b9dfca;
+    border-radius: 16px;
+    background: #eef9f3;
+}
+
+.action-selected-tire > span {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: #176947;
+    color: #fff;
+    font-size: 24px;
+}
+
+.action-selected-tire div,
+.action-selected-tire strong,
+.action-selected-tire small {
+    display: block;
+}
+
+.action-selected-tire strong {
+    font-size: 22px;
+}
+
+.action-selected-tire small {
+    margin-top: 3px;
+    color: var(--muted);
+}
+
+@keyframes action-step-in {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 700px) {
+    .action-dialog-section.is-current { min-height: 0; }
+    .action-dialog-head [data-action-customer-link] { font-size: 12px; }
+}
