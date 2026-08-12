@@ -1,7 +1,12 @@
 <x-layouts.app title="Krever handling · DekkPilot" heading="Krever handling">
 <link rel="stylesheet" href="{{ asset('action-center.css') }}?v=20260812-2">
 <link rel="stylesheet" href="{{ asset('action-workflow.css') }}?v=20260812-1">
-@php($otherCount=$items->count()-(int)($counts['Hjulsett']??0)-(int)($counts['Booking']??0)-(int)($counts['Tilbud']??0))
+@php
+    $otherCount = $items->count()
+        - (int) ($counts['Hjulsett'] ?? 0)
+        - (int) ($counts['Booking'] ?? 0)
+        - (int) ($counts['Tilbud'] ?? 0);
+@endphp
 <section class="stats"><a href="#action-list"><span class="stat-icon orange">{{ $items->count() }}</span><div><small>TOTALT</small><strong>{{ $items->count() }}</strong></div><b>↓</b></a>@foreach(['Hjulsett'=>(int)($counts['Hjulsett']??0),'Booking'=>(int)($counts['Booking']??0),'Tilbud'=>(int)($counts['Tilbud']??0),'Annet'=>$otherCount] as $type=>$count)<a href="#action-list"><span class="stat-icon {{ ['Hjulsett'=>'blue','Booking'=>'violet','Tilbud'=>'green','Annet'=>'orange'][$type] }}">{{ $count }}</span><div><small>{{ strtoupper($type) }}</small><strong>{{ $count }}</strong></div><b>↓</b></a>@endforeach</section>
 @if(session('label_url'))<div class="flash action-success">✓ Hjulsettet er lagret. <button class="button" type="button" data-action-label-preview="{{ session('label_url') }}">Forhåndsvis og skriv etikett</button></div>@endif
 <section class="panel action-toolbar"><div><p class="eyebrow">UTE VED REOLEN?</p><h2>Skann etiketten med kamera</h2><p>På mobil og nettbrett åpnes riktig hjulsett direkte.</p></div><div class="action-scan"><form method="get" action="{{ route('actions') }}"><input name="code" placeholder="HJ-XXXXXXXX" autocomplete="off" data-action-code><button class="button">Finn</button></form><button class="button ghost" type="button" data-action-camera-open>▣ Bruk kamera</button></div></section>
