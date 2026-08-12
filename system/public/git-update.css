@@ -1,0 +1,6 @@
+.git-file-select{max-height:430px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:14px;background:#f8faf9}
+.git-file-select-head{position:sticky;z-index:2;top:-8px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;background:#f8faf9;border-bottom:1px solid var(--line)}
+.git-file-select-head .button{padding:7px 10px;font-size:11px}
+.git-file-select label{display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid #e7ece9;cursor:pointer}
+.git-file-select label:last-child{border:0}.git-file-select input{width:auto}.git-file-select code{overflow-wrap:anywhere;font-size:11px;color:#31483d}
+@media(max-width:650px){.git-file-select{max-height:360px}.git-file-select-head{align-items:flex-start;flex-direction:column}}

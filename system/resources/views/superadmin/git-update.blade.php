@@ -1,4 +1,5 @@
 <x-layouts.app title="Git-oppdatering · DekkPilot" heading="Hent programoppdatering">
+<link rel="stylesheet" href="{{ asset('git-update.css') }}?v=20260812-1">
 @php($status=session('git_status',session('git_error',$gitStatus)))
 <div class="admin-subnav"><a href="{{ route('superadmin') }}">← Superadmin</a><a href="{{ route('superadmin.system-update') }}">Databaseoppdatering</a></div>
 <section class="panel"><div class="panel-head"><div><p class="eyebrow">SIKKER GITHUB-OPPDATERING</p><h2>{{ ($status['available']??false) ? (($status['behind']??0)>0 ? ($status['behind'].' nye commits er tilgjengelige') : 'Kontroller GitHub for endringer') : 'Git er ikke klart' }}</h2><p class="muted">Velg filene som skal hentes. Servermiljø, databasekobling, lagringsdata og andre beskyttede filer ignoreres automatisk.</p></div>@if($status['available']??false)<span class="status {{ ($status['behind']??0)>0?'in_progress':'completed' }}">{{ ($status['behind']??0)>0?'Oppdatering klar':'Status lokal' }}</span>@endif</div>
