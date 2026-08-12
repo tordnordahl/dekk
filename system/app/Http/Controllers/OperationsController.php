@@ -72,7 +72,7 @@ class OperationsController extends Controller
             'customerCount' => Customer::where('organization_id', $org)->count(),
             'storedCount' => $storedCount,
             'todayCount' => Booking::where('organization_id',$org)->whereDate('starts_at',today())->count(),
-            'warningCount' => TireSet::where('organization_id', $org)->where(fn ($q) => $q->where('minimum_tread_depth', '<', 3)->orWhere('dot_year', '<', now()->year - 8))->count(),
+            'warningCount' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where(fn ($q) => $q->where('minimum_tread_depth', '<', 3)->orWhere('dot_year', '<=', now()->year - 8))->count(),
             'bookings' => Booking::with(['customer', 'vehicle', 'workOrder'])->where('organization_id', $org)->whereDate('starts_at', today())->orderBy('starts_at')->get(),
             'occupancy' => $occupancy,
         ]);
