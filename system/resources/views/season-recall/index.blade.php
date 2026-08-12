@@ -1,5 +1,5 @@
 <x-layouts.app title="Sesonginnkalling · DekkPilot" heading="Sesonginnkalling">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'season-recall.css']) }}?v=20260812-2">
+<link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'season-recall.css']) : asset('season-recall.css') }}?v=20260812-3">
 <section class="recall-hero panel">
     <div><p class="eyebrow">FYLL TIMEBOKEN SMART</p><h2>Kall inn hotellkundene til sesongskift</h2><p>Velg sesong, kontroller mottakerne og legg personlige invitasjoner i e-post- og SMS-køen. Kunden bestiller selv fra kundeportalen.</p></div>
     <div class="recall-total"><strong>{{ $customers->count() }}</strong><span>aktuelle kunder</span></div>

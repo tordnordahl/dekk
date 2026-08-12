@@ -1,5 +1,5 @@
 <x-layouts.app title="Git-oppdatering · DekkPilot" heading="Hent programoppdatering">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'git-update.css']) }}?v=20260812-2">
+<link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'git-update.css']) : asset('git-update.css') }}?v=20260812-3">
 @php($status=session('git_status',session('git_error',$gitStatus)))
 <div class="admin-subnav"><a href="{{ route('superadmin') }}">← Superadmin</a><a href="{{ route('superadmin.system-update') }}">Databaseoppdatering</a></div>
 <section class="panel"><div class="panel-head"><div><p class="eyebrow">SIKKER GITHUB-OPPDATERING</p><h2>{{ ($status['available']??false) ? (($status['files']??[]) ? count($status['files']).' filer kan oppdateres' : 'Kontroller GitHub for endringer') : 'Git er ikke klart' }}</h2><p class="muted">Sammenlign serverfilene med GitHub. Miljø, databasekobling, lagringsdata og andre beskyttede filer ignoreres automatisk.</p></div>@if($status['available']??false)<span class="status {{ ($status['files']??[])?'in_progress':'completed' }}">{{ ($status['files']??[])?'Oppdatering klar':'Serverfiler kontrollert' }}</span>@endif</div>
@@ -22,5 +22,5 @@
 @endif
 </section>
 <section class="panel"><p class="eyebrow">BESKYTTEDE DATA</p><h2>Dette røres aldri</h2><p class="muted"><code>.env</code>, databaseinnhold, <code>storage</code>, opplastede filer og serverens hemmeligheter skal være ignorert av Git. Oppdateringen avbrytes hvis GitHub likevel forsøker å endre slike stier.</p><p class="fine">Remote: {{ $status['remote_url']??'Ikke tilgjengelig' }} · Mappe: {{ $status['path']??'' }}</p></section>
-<script src="{{ route('system.asset', ['filename' => 'git-update.js']) }}?v=20260812-2" defer></script>
+<script src="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'git-update.js']) : asset('git-update.js') }}?v=20260812-3" defer></script>
 </x-layouts.app>

@@ -1,6 +1,6 @@
 <x-layouts.app title="Hjulhotell · DekkPilot" heading="Hjulhotell">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'tire-intake.css']) }}?v=20260812-1">
-<link rel="stylesheet" href="{{ route('system.asset', ['filename' => 'inventory-actions.css']) }}?v=20260812-2">
+<link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'tire-intake.css']) : asset('tire-intake.css') }}?v=20260812-2">
+<link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'inventory-actions.css']) : asset('inventory-actions.css') }}?v=20260812-3">
 <section class="stats inventory-stats">
     <a href="{{ route('inventory',['status'=>'stored']) }}"><span class="stat-icon green">▦</span><div><small>PÅ LAGER</small><strong>{{ $inventoryStats['stored'] }}</strong></div><b>→</b></a>
     <a href="{{ route('inventory',['status'=>'received']) }}"><span class="stat-icon orange">⇣</span><div><small>I MOTTAK</small><strong>{{ $inventoryStats['received'] }}</strong></div><b>→</b></a>
@@ -38,5 +38,5 @@
 </form></article><article class="panel location-capacity"><p class="eyebrow">PLASSKAPASITET</p><h2>Finn ledig plass</h2>@foreach($locations->take(8) as $location)@php($percent=min(100,round(($location->tire_sets_count/max(1,$location->capacity))*100)))<div><span><b>{{ $location->code }}</b><small>{{ $location->tire_sets_count }}/{{ $location->capacity }}</small></span><progress value="{{ $percent }}" max="100"></progress></div>@endforeach</article></aside>
 </section>
 <dialog class="label-modal" data-label-modal><div class="label-modal-head"><div><p class="eyebrow">UTSKRIFTSKLAR</p><h2>Forhåndsvis etikett</h2></div><button type="button" data-label-close aria-label="Lukk">×</button></div><div class="label-modal-info"><span>Format <strong>100 × 50 mm</strong></span><span>Utskrift <strong>Kun etiketten</strong></span></div><div class="label-frame-wrap"><iframe title="Forhåndsvisning av hjuletikett" data-label-frame></iframe></div><div class="label-modal-actions"><button class="button ghost" type="button" data-label-close>Avbryt</button><button class="button" type="button" data-label-print>▤ Skriv ut etikett</button></div></dialog>
-<script defer src="{{ route('system.asset', ['filename' => 'inventory.js']) }}?v=20260812-1"></script>
+<script defer src="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'inventory.js']) : asset('inventory.js') }}?v=20260812-2"></script>
 </x-layouts.app>
