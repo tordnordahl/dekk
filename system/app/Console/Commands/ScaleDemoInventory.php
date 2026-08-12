@@ -18,6 +18,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use App\Services\DemoBookingSeeder;
 
 class ScaleDemoInventory extends Command
 {
@@ -96,6 +97,7 @@ class ScaleDemoInventory extends Command
             Customer::where('organization_id',$org->id)->where('notes','like','[DEMO-BULK]%')->whereDoesntHave('vehicles')->forceDelete();
             $this->buildCommercialDemo($org,$branch);
         });
+        app(DemoBookingSeeder::class)->seed($org,$branch,true);
 
         $vehicles = Vehicle::where('organization_id',$org->id)->where('notes','like','[DEMO-BULK]%')->count();
         $sets = TireSet::where('organization_id',$org->id)->where('condition_notes','like','[DEMO-BULK]%')->count();
