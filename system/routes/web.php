@@ -56,6 +56,7 @@ Route::middleware('guest')->group(function () {
 });
 Route::view('/vilkar', 'legal.terms')->name('legal.terms');
 Route::view('/personvern', 'legal.privacy')->name('legal.privacy');
+Route::view('/databehandleravtale', 'legal.dpa')->name('legal.dpa');
 Route::match(['get','post'],'/system-cron/{token}',[SuperAdminOperationsController::class,'run'])->middleware('throttle:3,1')->name('system.cron');
 Route::get('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'show'])->middleware('throttle:60,1')->name('checkout.show');
 Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'lookup'])->middleware('throttle:15,1')->name('checkout.lookup');
