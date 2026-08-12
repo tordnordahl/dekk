@@ -5,7 +5,9 @@
 <link rel="stylesheet" href="{{ asset('booking-overview.css') }}?v=20260812-2">
 <link rel="stylesheet" href="{{ asset('booking-identity.css') }}?v=20260812-1">
 <link rel="stylesheet" href="{{ asset('booking-completion.css') }}?v=20260811-2">
-@php($canCreate=in_array(auth()->user()->role,['owner','admin','manager','customer_service'],true))
+@php
+    $canCreate = in_array(auth()->user()->role, ['owner', 'admin', 'manager', 'customer_service'], true);
+@endphp
 <section class="booking-toolbar panel">
     <form method="get">
         <input type="hidden" name="view" value="{{ request('view','bookings') }}">
@@ -34,7 +36,18 @@
     <article class="panel">
         @if(request('view')==='available')
         <div class="panel-head"><div><p class="eyebrow">LEDIG KAPASITET</p><h2>{{ $availabilityService?->name ?? 'Ledige timer' }}</h2><p>Velg et tidspunkt for å opprette booking.</p></div><span class="status">{{ $availabilitySlots->count() }} tider</span></div>
-        <div class="availability-overview">@php($lastAvailableDay=null)@forelse($availabilitySlots as $slot)@if($slot['day_key']!==$lastAvailableDay)<h3>{{ $slot['day'] }}</h3>@php($lastAvailableDay=$slot['day_key'])@endif<a href="{{ route('bookings',['new'=>1,'slot'=>$slot['starts_at'],'service_id'=>$availabilityService?->id]) }}"><strong>{{ $slot['time'] }}</strong><span>til {{ $slot['end'] }}</span><em>Book →</em></a>@empty<div class="empty-state"><strong>Ingen ledige timer funnet</strong><span>Velg en senere dato eller kontroller kapasiteten under Innstillinger.</span></div>@endforelse</div>
+        <div class="availability-overview">
+        @php $lastAvailableDay = null; @endphp
+        @forelse($availabilitySlots as $slot)
+            @if($slot['day_key'] !== $lastAvailableDay)
+                <h3>{{ $slot['day'] }}</h3>
+                @php $lastAvailableDay = $slot['day_key']; @endphp
+            @endif
+            <a href="{{ route('bookings',['new'=>1,'slot'=>$slot['starts_at'],'service_id'=>$availabilityService?->id]) }}"><strong>{{ $slot['time'] }}</strong><span>til {{ $slot['end'] }}</span><em>Book →</em></a>
+        @empty
+            <div class="empty-state"><strong>Ingen ledige timer funnet</strong><span>Velg en senere dato eller kontroller kapasiteten under Innstillinger.</span></div>
+        @endforelse
+        </div>
         @elseif(request('view')==='calendar')
         <div class="clinical-head"><div><p class="eyebrow">KLINISK KALENDER</p><h2>{{ $calendarDate->isToday()?'I dag':ucfirst($calendarDate->translatedFormat('l d. F')) }}</h2><p>Alle timer og ledig kapasitet i én kompakt dagsvisning.</p></div><div class="clinical-date-nav"><a aria-label="Forrige dag" href="{{ route('bookings',['view'=>'calendar','calendar_date'=>$calendarDate->copy()->subDay()->toDateString(),'split'=>$calendarSplit]) }}">←</a><a href="{{ route('bookings',['view'=>'calendar','calendar_date'=>today()->toDateString(),'split'=>$calendarSplit]) }}">I dag</a><a aria-label="Neste dag" href="{{ route('bookings',['view'=>'calendar','calendar_date'=>$calendarDate->copy()->addDay()->toDateString(),'split'=>$calendarSplit]) }}">→</a></div></div>
         <nav class="clinical-split" aria-label="Del kalenderen etter ressurs"><a class="{{ $calendarSplit==='all'?'active':'' }}" href="{{ route('bookings',['view'=>'calendar','calendar_date'=>$calendarDate->toDateString(),'split'=>'all']) }}"><span>●</span> Samlet</a><a class="{{ $calendarSplit==='bay'?'active':'' }}" href="{{ route('bookings',['view'=>'calendar','calendar_date'=>$calendarDate->toDateString(),'split'=>'bay']) }}"><span>▣</span> Bukker</a><a class="{{ $calendarSplit==='employee'?'active':'' }}" href="{{ route('bookings',['view'=>'calendar','calendar_date'=>$calendarDate->toDateString(),'split'=>'employee']) }}"><span>👤</span> Ansatte</a></nav>
@@ -54,13 +67,15 @@
             </div>
           @endforeach
         @empty<div class="empty-state"><strong>Ingen åpningstid denne dagen</strong><span>Kontroller åpningstidene under innstillinger.</span></div>@endforelse</div></div>
-        <div class="clinical-dropins">@php($dropIns=$calendarBookings->where('is_drop_in',true))@if($dropIns->isNotEmpty())<strong>Drop-in uten klokkeslett</strong>@foreach($dropIns as $item)<span>{{ $item->vehicle?->registration_number }} · {{ $item->customer->name }}</span>@endforeach@endif</div>
+        @php $dropIns = $calendarBookings->where('is_drop_in', true); @endphp
+        <div class="clinical-dropins">@if($dropIns->isNotEmpty())<strong>Drop-in uten klokkeslett</strong>@foreach($dropIns as $item)<span>{{ $item->vehicle?->registration_number }} · {{ $item->customer->name }}</span>@endforeach @endif</div>
         @else
         <div class="panel-head"><div><p class="eyebrow">FREMOVER</p><h2>{{ $bookings->total() }} bookinger</h2></div></div>
-        <div class="booking-days">@php($lastDay=null)
+        @php $lastDay = null; @endphp
+        <div class="booking-days">
         @forelse($bookings as $booking)
-            @php($day=$booking->starts_at->toDateString())
-            @if($day!==$lastDay)<div class="day-divider"><strong>{{ $booking->starts_at->isToday()?'I dag':($booking->starts_at->isTomorrow()?'I morgen':$booking->starts_at->translatedFormat('l d. F')) }}</strong><span>{{ $booking->starts_at->format('d.m.Y') }}</span></div>@php($lastDay=$day)@endif
+            @php $day = $booking->starts_at->toDateString(); @endphp
+            @if($day!==$lastDay)<div class="day-divider"><strong>{{ $booking->starts_at->isToday()?'I dag':($booking->starts_at->isTomorrow()?'I morgen':$booking->starts_at->translatedFormat('l d. F')) }}</strong><span>{{ $booking->starts_at->format('d.m.Y') }}</span></div>@php $lastDay = $day; @endphp @endif
             <div id="booking-{{ $booking->id }}" class="booking-row {{ $booking->capacity_overbooked?'overbooked':'' }}">
                 <time>{{ $booking->is_drop_in?'Drop-in':$booking->starts_at->format('H:i') }}<small>{{ $booking->is_drop_in?'Uten fast tid':$booking->ends_at->format('H:i') }}</small></time>
                 <div class="booking-customer"><div class="booking-customer-line"><strong>{{ $booking->vehicle?->registration_number ?? 'Uten bil' }}</strong><span>{{ $booking->customer->name }}</span></div><span>{{ $booking->service_name }}</span></div>
