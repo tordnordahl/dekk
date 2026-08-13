@@ -24,6 +24,7 @@ class WorkdayController extends Controller
         $allToday=Booking::with(['customer','vehicle','assignedUser','workBay'])->where('organization_id',$org)->where('branch_id',$user->branch_id)->whereDate('starts_at',today())->whereNotIn('status',['cancelled','no_show'])->orderBy('starts_at')->get();
         $myToday=$allToday->where('assigned_user_id',$user->id)->values();
         $today=$scheduleMode==='mine'?$myToday:$allToday;
+        $todayByBay=$today->groupBy(fn($booking)=>$booking->workBay?->code??'Uten bukk');
         $prepMode=in_array($request->query('prep'),['tomorrow','week'],true)?$request->query('prep'):'tomorrow';
         $prepFrom=today()->addDay()->startOfDay();
         $prepUntil=$prepMode==='week'?today()->addDays(7)->endOfDay():today()->addDay()->endOfDay();
@@ -38,7 +39,7 @@ class WorkdayController extends Controller
             ->oldest('received_at')->limit(20)->get();
         $locations=StorageLocation::withCount(['tireSets'=>fn($q)=>$q->whereNotNull('received_at')->whereIn('status',['received','stored','picked','workshop'])])
             ->where('organization_id',$org)->where('branch_id',$user->branch_id)->where('active',true)->orderBy('code')->get();
-        return view('workday.index',['today'=>$today,'myToday'=>$myToday,'allToday'=>$allToday,'area'=>$area,'scheduleMode'=>$scheduleMode,'preparationBookings'=>$preparationBookings,'prepMode'=>$prepMode,'scanned'=>$scanned,'scanCode'=>$code,'intakeSets'=>$intakeSets,'locations'=>$locations]);
+        return view('workday.index',['today'=>$today,'todayByBay'=>$todayByBay,'myToday'=>$myToday,'allToday'=>$allToday,'area'=>$area,'scheduleMode'=>$scheduleMode,'preparationBookings'=>$preparationBookings,'prepMode'=>$prepMode,'scanned'=>$scanned,'scanCode'=>$code,'intakeSets'=>$intakeSets,'locations'=>$locations]);
     }
 
     public function move(Request $request,TireSet $tireSet):RedirectResponse
