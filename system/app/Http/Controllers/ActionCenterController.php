@@ -45,6 +45,27 @@ class ActionCenterController extends Controller
             if($labelReminders&&!$set->label_printed_at)$needs->push('mangler etikett');
             $items->push(['priority'=>1,'type'=>'Hjulsett','title'=>($set->vehicle?->registration_number??$set->code).' · '.($set->vehicle?->customer?->name??'Ukjent kunde'),'detail'=>$needs->join(' · '),'tire_set_id'=>$set->id]);
         }
+        $alreadyHandledTireSetIds=$tireSets->pluck('id');
+        TireSet::with(['vehicle.customer','inspections.measurements'])
+            ->where('organization_id',$org)
+            ->whereNotIn('id',$alreadyHandledTireSetIds)
+            ->whereDoesntHave('inspections',fn($query)=>$query->where('inspected_at','>',now()->subYear()))
+            ->limit(75)
+            ->get()
+            ->each(function(TireSet $set)use($items){
+                $last=$set->inspections->first();
+                $detail=$last?->inspected_at
+                    ? 'Sist målt '.$last->inspected_at->format('d.m.Y').' · tilstanden kan ha endret seg siden sist'
+                    : 'Dekkene er aldri målt · kontroller alle fire hjul';
+                $items->push([
+                    'priority'=>$last?2:1,
+                    'type'=>'Kontroll',
+                    'title'=>($set->vehicle?->registration_number??$set->code).' trenger ny dekkmåling',
+                    'detail'=>$detail,
+                    'kind'=>'inspection',
+                    'model'=>$set,
+                ]);
+            });
         $canManage=in_array($request->user()->role,['owner','admin','manager'],true);
         if($canManage){
             InvoiceExport::where('organization_id',$org)->where('status','failed')->limit(50)->get()->each(fn($invoice)=>$items->push(['priority'=>1,'type'=>'Regnskap','title'=>$invoice->reference.' kunne ikke sendes','detail'=>$invoice->last_error,'kind'=>'invoice','model'=>$invoice]));
