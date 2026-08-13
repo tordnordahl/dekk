@@ -49,11 +49,13 @@ class ActionCenterController extends Controller
         TireSet::with(['vehicle.customer','inspections.measurements'])
             ->where('organization_id',$org)
             ->whereNotIn('id',$alreadyHandledTireSetIds)
-            ->whereDoesntHave('inspections',fn($query)=>$query->where('inspected_at','>',now()->subYear()))
+            ->whereDoesntHave('inspections',fn($query)=>$query
+                ->where('inspected_at','>',now()->subYear())
+                ->whereHas('measurements',fn($measurements)=>$measurements->whereNotNull('tread_depth_mm')))
             ->limit(75)
             ->get()
             ->each(function(TireSet $set)use($items){
-                $last=$set->inspections->first();
+                $last=$set->inspections->first(fn($inspection)=>$inspection->measurements->contains(fn($measurement)=>$measurement->tread_depth_mm!==null));
                 $detail=$last?->inspected_at
                     ? 'Sist målt '.$last->inspected_at->format('d.m.Y').' · tilstanden kan ha endret seg siden sist'
                     : 'Dekkene er aldri målt · kontroller alle fire hjul';
