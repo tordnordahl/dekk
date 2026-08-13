@@ -18,8 +18,12 @@ class WorkdayController extends Controller
     public function index(Request $request): View
     {
         $user=$request->user();$org=$user->organization_id;$code=strtoupper(trim((string)$request->query('code')));$scanned=null;
+        $area=in_array($request->query('area'),['schedule','preparation','cleanup'],true)?$request->query('area'):'schedule';
+        $scheduleMode=in_array($request->query('schedule'),['mine','all','bays'],true)?$request->query('schedule'):'mine';
         if($code!=='')$scanned=TireSet::with(['vehicle.customer','storageLocation'])->where('organization_id',$org)->where('code',$code)->first();
-        $today=Booking::with(['customer','vehicle'])->where('organization_id',$org)->where('assigned_user_id',$user->id)->whereDate('starts_at',today())->whereNotIn('status',['cancelled','no_show'])->orderBy('starts_at')->get();
+        $allToday=Booking::with(['customer','vehicle','assignedUser','workBay'])->where('organization_id',$org)->where('branch_id',$user->branch_id)->whereDate('starts_at',today())->whereNotIn('status',['cancelled','no_show'])->orderBy('starts_at')->get();
+        $myToday=$allToday->where('assigned_user_id',$user->id)->values();
+        $today=$scheduleMode==='mine'?$myToday:$allToday;
         $prepMode=in_array($request->query('prep'),['tomorrow','week'],true)?$request->query('prep'):'tomorrow';
         $prepFrom=today()->addDay()->startOfDay();
         $prepUntil=$prepMode==='week'?today()->addDays(7)->endOfDay():today()->addDay()->endOfDay();
@@ -34,7 +38,7 @@ class WorkdayController extends Controller
             ->oldest('received_at')->limit(20)->get();
         $locations=StorageLocation::withCount(['tireSets'=>fn($q)=>$q->whereNotNull('received_at')->whereIn('status',['received','stored','picked','workshop'])])
             ->where('organization_id',$org)->where('branch_id',$user->branch_id)->where('active',true)->orderBy('code')->get();
-        return view('workday.index',['today'=>$today,'preparationBookings'=>$preparationBookings,'prepMode'=>$prepMode,'scanned'=>$scanned,'scanCode'=>$code,'intakeSets'=>$intakeSets,'locations'=>$locations]);
+        return view('workday.index',['today'=>$today,'myToday'=>$myToday,'allToday'=>$allToday,'area'=>$area,'scheduleMode'=>$scheduleMode,'preparationBookings'=>$preparationBookings,'prepMode'=>$prepMode,'scanned'=>$scanned,'scanCode'=>$code,'intakeSets'=>$intakeSets,'locations'=>$locations]);
     }
 
     public function move(Request $request,TireSet $tireSet):RedirectResponse
@@ -53,7 +57,7 @@ class WorkdayController extends Controller
             DB::table('audit_logs')->insert(['organization_id'=>$tireSet->organization_id,'user_id'=>$request->user()->id,'action'=>'tire_set.workflow.'.$data['status'],'subject_type'=>TireSet::class,'subject_id'=>$tireSet->id,'metadata'=>json_encode(['one_scan_entire_set'=>true,'storage_location_id'=>$to,'prepared_for_booking'=>$data['status']==='picked']),'created_at'=>now()]);
         });
         $message=$data['status']==='picked'?'Hjulsettet er plukket og lagt på mottak.':'Hele hjulsettet er flyttet videre. Du trenger ikke skanne hvert hjul.';
-        $parameters=($data['return_to']??'scan')==='preparation'?['prep'=>$data['prep']??'tomorrow']:['code'=>$tireSet->code];
+        $parameters=($data['return_to']??'scan')==='preparation'?['area'=>'preparation','prep'=>$data['prep']??'tomorrow']:['code'=>$tireSet->code];
         return redirect()->route('workday',$parameters)->with('success',$message);
     }
 
@@ -75,6 +79,6 @@ class WorkdayController extends Controller
             $updates=['storage_location_id'=>$location->id,'storage_shelf_number'=>$shelf,'status'=>'stored'];$message='Hjulsettet er ferdig og plassert på '.$location->code.', hylle '.$shelf.'.';
         }
         DB::transaction(function()use($tireSet,$updates,$request,$from,$data){$tireSet->update($updates);if($data['action']==='measure'){$minimum=(float)min($data['depths']);$inspection=TireInspection::create(['public_id'=>(string)Str::uuid(),'organization_id'=>$tireSet->organization_id,'tire_set_id'=>$tireSet->id,'inspected_by'=>$request->user()->id,'overall_status'=>$minimum<3?'replace':($minimum<4?'attention':'good'),'inspected_at'=>now()]);foreach(['front_left','front_right','rear_left','rear_right']as$i=>$position)$inspection->measurements()->create(['position'=>$position,'tread_depth_mm'=>$data['depths'][$i],'tpms_status'=>'not_checked','tire_damage'=>false,'rim_damage'=>false,'uneven_wear'=>false]);}$to=$tireSet->fresh()->storage_location_id;if($from!==$to)DB::table('storage_location_movements')->insert(['organization_id'=>$tireSet->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$from,'to_location_id'=>$to,'moved_by'=>$request->user()->id,'reason'=>'workday_intake','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);DB::table('audit_logs')->insert(['organization_id'=>$tireSet->organization_id,'user_id'=>$request->user()->id,'action'=>'tire_set.intake.'.$data['action'],'subject_type'=>TireSet::class,'subject_id'=>$tireSet->id,'metadata'=>json_encode(['source'=>'workday']),'created_at'=>now()]);});
-        return redirect()->route('workday')->with('success',$message);
+        return redirect()->route('workday',['area'=>'cleanup'])->with('success',$message);
     }
 }
