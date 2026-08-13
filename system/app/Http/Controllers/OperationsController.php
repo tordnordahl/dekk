@@ -372,7 +372,7 @@ class OperationsController extends Controller
         if (! empty($data['storage_location_id'])) $location = StorageLocation::where('organization_id', $tireSet->organization_id)->whereKey($data['storage_location_id'])->firstOrFail();
         $updates = ['status' => $data['status']];
         if (!$tireSet->received_at) $updates['received_at'] = now();
-        if($data['status']==='received'&&$tireSet->status==='delivered')$updates+=['minimum_tread_depth'=>null,'wash_status'=>'needed','washed'=>false,'received_at'=>now(),'delivered_at'=>null];
+        if($data['status']==='received'&&$tireSet->status!=='received')$updates+=['minimum_tread_depth'=>null,'wash_status'=>'needed','washed'=>false,'received_at'=>now(),'delivered_at'=>null];
         if (array_key_exists('storage_location_id', $data)) { $updates['storage_location_id'] = $data['storage_location_id']; $updates['storage_shelf_number'] = $location ? $placement->nextShelf($location) : null; if ($location && $updates['storage_shelf_number'] === null) return back()->withErrors(['storage_location_id' => $location->code.' er full.']); }
         if ($data['status'] === 'delivered') $updates['delivered_at'] = now();
         elseif ($tireSet->delivered_at) $updates['delivered_at'] = null;
