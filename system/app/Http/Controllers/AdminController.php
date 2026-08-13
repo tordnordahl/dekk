@@ -136,7 +136,7 @@ class AdminController extends Controller
                     'registration_number' => $vehicleData['registration_number'], 'make' => $vehicleData['make'], 'model' => $vehicleData['model'],
                     'model_year' => $vehicleData['model_year'], 'vin' => $vehicleData['vin'], 'recommended_tire_size'=>$vehicleData['recommended_tire_size'],
                 ]);
-                TireSet::create([
+                $set = TireSet::create([
                     'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'vehicle_id' => $vehicle->id,
                     'storage_location_id' => $locations ? $locations[array_rand($locations)] : null,
                     'code' => 'HJ-D'.strtoupper(Str::random(7)), 'season' => random_int(0, 1) ? 'winter' : 'summer',
@@ -146,6 +146,7 @@ class AdminController extends Controller
                     'dot_year' => random_int((int) now()->year - 6, (int) now()->year),
                     'status' => $locations ? 'stored' : 'received', 'condition_notes' => '[DUMMY]', 'received_at' => now()->subDays(random_int(1, 180)),
                 ]);
+                app(\App\Services\TireInspectionService::class)->backfill($set);
                 if ($i % 2 === 0) {
                     $starts = now()->addDays(random_int(0, 30))->setTime(random_int(8, 15), [0, 15, 30, 45][array_rand([0, 1, 2, 3])]);
                     Booking::create([
