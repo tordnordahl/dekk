@@ -66,6 +66,7 @@ class ActionCenterController extends Controller
                     'detail'=>$detail,
                     'kind'=>'inspection',
                     'model'=>$set,
+                    'last_measured_at'=>$last?->inspected_at,
                 ]);
             });
         $canManage=in_array($request->user()->role,['owner','admin','manager'],true);
