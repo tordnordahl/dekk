@@ -75,7 +75,7 @@
 </div>
 @if(session('ui_mode') === 'technician')<nav class="technician-mobile-nav" aria-label="Teknikermeny"><a class="{{ request()->routeIs('workday*')?'active':'' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>I dag</span></a><a class="{{ request()->routeIs('warehouse.map')?'active':'' }}" href="{{ route('warehouse.map') }}"><x-icon name="warehouse"/><span>Kart</span></a><a class="{{ request()->routeIs('inventory*')?'active':'' }}" href="{{ route('inventory') }}"><x-icon name="tires"/><span>Hjul</span></a><a class="{{ request()->routeIs('actions')?'active':'' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Avvik</span></a><a href="{{ route('ui-mode.choose') }}"><x-icon name="settings"/><span>Bytt</span></a></nav>@endif
 @foreach(['app-shell.js','profile-menu.js','email-preview.js','booking-capacity.js','quote-preview.js','ux-review.js'] as $script)
-<script defer src="{{ $safeAsset($script) }}?v=20260812-10"></script>
+<script defer src="{{ $safeAsset($script) }}?v=20260813-1"></script>
 @endforeach
 </body>
 </html>
