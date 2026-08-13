@@ -90,7 +90,7 @@ class ManagementController extends Controller
     public function labelReminders(Request $request): RedirectResponse
     {
         ServiceSetting::updateOrCreate(['branch_id'=>$request->user()->branch_id],['organization_id'=>$request->user()->organization_id,'label_reminders_enabled'=>$request->boolean('enabled')]);
-        return back()->with('success','Etikettvarsler er oppdatert.');
+        return back()->with('success',$request->boolean('enabled')?'Etikettutskrift er aktivert.':'Etikettutskrift og etikettpåminnelser er slått av.');
     }
 
     public function tireProduct(Request $request): RedirectResponse

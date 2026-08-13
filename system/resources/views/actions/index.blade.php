@@ -1,6 +1,7 @@
 <x-layouts.app title="Krever handling · DekkPilot" heading="Krever handling">
 <link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'action-center.css']) : asset('action-center.css') }}?v=20260812-4">
 <link rel="stylesheet" href="{{ in_array(request()->getHost(),['localhost','127.0.0.1','::1'],true) ? route('system.asset',['filename'=>'action-workflow.css']) : asset('action-workflow.css') }}?v=20260812-3">
+<meta name="labels-enabled" content="{{ $labelsEnabled?'1':'0' }}">
 @php
     $otherCount = $items->count()
         - (int) ($counts['Hjulsett'] ?? 0)

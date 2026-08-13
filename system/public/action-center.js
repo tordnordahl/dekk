@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const allSections = [...(form?.querySelectorAll('.action-dialog-section') || [])];
     const sectionKinds = ['location', 'measure', 'wash', 'label'];
+    const labelsEnabled = document.querySelector('meta[name="labels-enabled"]')?.content !== '0';
     const progress = dialog?.querySelector('[data-action-step-progress]');
     const backButton = form?.querySelector('[data-action-step-back]');
     const nextButton = form?.querySelector('[data-action-step-next]');
@@ -67,9 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
         form.querySelectorAll('[name="wash_status"]').forEach(input => { input.checked = input.value === (tire.wash_status === 'not_assessed' ? '' : tire.wash_status); });
         depths.forEach(input => { input.value = tire.measurements?.[input.dataset.actionDepth] ?? ''; });
         updateDepth();
-        const requestedKinds = tire.needs?.length ? tire.needs : ['label'];
+        const requestedKinds = (tire.needs?.length ? tire.needs : ['label']).filter(kind => labelsEnabled || kind !== 'label');
         activeSections = allSections.filter((_section, index) => requestedKinds.includes(sectionKinds[index]));
-        if (!activeSections.length) activeSections = [allSections[allSections.length - 1]];
+        if (!activeSections.length) { dialog.close(); return; }
         activeSections.forEach((section, index) => {
             const number = section.querySelector('.step-label>b');
             if (number) number.textContent = String(index + 1);

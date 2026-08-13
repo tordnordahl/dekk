@@ -168,7 +168,8 @@ class OperationsController extends Controller
         $tireSet->load(['vehicle.customer','storageLocation','inspections.measurements','movements']);
         $locations=StorageLocation::withCount(['tireSets'=>fn($q)=>$q->whereNotIn('status',['delivered'])])->where('organization_id',$tireSet->organization_id)->where('active',true)->orderBy('code')->get();
         $agreement=\App\Models\HotelAgreement::where('tire_set_id',$tireSet->id)->latest()->first();
-        return view('inventory.show',compact('tireSet','locations','agreement'));
+        $labelsEnabled=ServiceSetting::labelsEnabledForBranch($request->user()->branch_id);
+        return view('inventory.show',compact('tireSet','locations','agreement','labelsEnabled'));
     }
 
     public function storeCustomer(Request $request, PostalCodeService $postalCodes): RedirectResponse
@@ -335,6 +336,7 @@ class OperationsController extends Controller
             'sets' => $sets->paginate(50)->withQueryString(),
             'vehicles' => $vehicles->orderBy('registration_number')->limit(100)->get(),
             'locations' => StorageLocation::withCount(['tireSets' => fn ($q) => $q->whereNotNull('received_at')->whereIn('status', ['received','stored','picked','workshop'])])->where('organization_id', $org)->where('active', true)->orderBy('code')->get(),
+            'labelsEnabled' => ServiceSetting::labelsEnabledForBranch($request->user()->branch_id),
             'inventoryStats' => [
                 'stored' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where('status', 'stored')->count(),
                 'received' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where('status', 'received')->count(),
@@ -361,7 +363,10 @@ class OperationsController extends Controller
             return $set;
         });
         $hotel->ensureAgreement($set);
-        return back()->with('success', 'Hjulsettet er registrert på dekkhotell. Hotellavtale og fakturerbart grunnlag er opprettet.')->with('label_url', route('tire-sets.labels', ['ids' => $set->id]));
+        $response=back()->with('success', 'Hjulsettet er registrert på dekkhotell. Hotellavtale og fakturerbart grunnlag er opprettet.');
+        return ServiceSetting::labelsEnabledForBranch($request->user()->branch_id)
+            ? $response->with('label_url', route('tire-sets.labels', ['ids' => $set->id]))
+            : $response;
     }
 
     public function updateTireSetStatus(Request $request, TireSet $tireSet, WarehousePlacementService $placement, TireHotelService $hotel): RedirectResponse
@@ -388,6 +393,7 @@ class OperationsController extends Controller
 
     public function tireLabels(Request $request): View
     {
+        abort_unless(ServiceSetting::labelsEnabledForBranch($request->user()->branch_id),404);
         $ids = collect(explode(',', (string) $request->query('ids')))->filter(fn ($id) => ctype_digit($id))->map(fn ($id) => (int) $id)->unique()->take(100);
         abort_if($ids->isEmpty(), 404);
         $sets = TireSet::with(['vehicle.customer', 'storageLocation'])->where('organization_id', $request->user()->organization_id)->whereIn('id', $ids)->get();
@@ -409,6 +415,7 @@ class OperationsController extends Controller
 
     public function markLabelsPrinted(Request $request): JsonResponse
     {
+        abort_unless(ServiceSetting::labelsEnabledForBranch($request->user()->branch_id),404);
         $data=$request->validate(['ids'=>['required','array','between:1,100'],'ids.*'=>['integer']]);
         return response()->json(['updated'=>TireSet::where('organization_id',$request->user()->organization_id)->whereIn('id',$data['ids'])->update(['label_printed_at'=>now()])]);
     }
