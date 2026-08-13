@@ -124,7 +124,7 @@ class ScaleDemoInventory extends Command
     {
         $status=['stored','stored','stored','picked','workshop','received','delivered'][$seed%7];
         $location=$status==='received'?null:$locations[$seed%$locations->count()];
-        TireSet::withTrashed()->updateOrCreate(['organization_id'=>$orgId,'code'=>$code], [
+        $set=TireSet::withTrashed()->updateOrCreate(['organization_id'=>$orgId,'code'=>$code], [
             'public_id'=>(string)(TireSet::where('organization_id',$orgId)->where('code',$code)->value('public_id') ?: Str::uuid()),
             'vehicle_id'=>$vehicle->id, 'storage_location_id'=>$location?->id, 'season'=>$season, 'kind'=>'complete_wheels',
             'manufacturer'=>$brands[$seed%count($brands)], 'model'=>['IceContact','Hakka','Primacy','EfficientGrip'][$seed%4],
@@ -133,5 +133,6 @@ class ScaleDemoInventory extends Command
             'received_at'=>now()->subDays($seed%365), 'delivered_at'=>$status==='delivered'?now()->subDays($seed%30):null,
             'deleted_at'=>null,
         ]);
+        app(\App\Services\TireInspectionService::class)->backfill($set);
     }
 }
