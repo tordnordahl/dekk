@@ -351,12 +351,14 @@ class OperationsController extends Controller
         $org = $request->user()->organization_id;
         $data = $request->validate(['vehicle_id' => ['required', 'integer'], 'storage_location_id' => ['nullable', 'integer'], 'season' => ['required', 'in:summer,winter,all_season'], 'kind' => ['required', 'in:complete_wheels,tires,rims'], 'manufacturer' => ['nullable', 'string', 'max:100'], 'size' => ['nullable', 'string', 'max:50'], 'dot_year' => ['nullable', 'integer', 'between:1990,2100'], 'wheels' => ['required', 'array', 'size:4'], 'wheels.*.position' => ['required', 'distinct', 'in:front_left,front_right,rear_left,rear_right'], 'wheels.*.tread_depth_mm' => ['required', 'numeric', 'between:0,20']]);
         abort_unless(Vehicle::where('organization_id', $org)->whereKey($data['vehicle_id'])->exists(), 422);
-        $location = null; $shelf = null;
-        if (!empty($data['storage_location_id'])) { $location = StorageLocation::where('organization_id', $org)->whereKey($data['storage_location_id'])->firstOrFail(); $shelf = $placement->nextShelf($location); if ($shelf === null) return back()->withErrors(['storage_location_id' => $location->code.' er full. Velg en annen reol.'])->withInput(); }
+        $data = array_merge($data, $request->validate(WarehousePlacementService::rules()));
+        $location = null;
+        if (!empty($data['storage_location_id'])) $location = StorageLocation::where('organization_id', $org)->where('active', true)->findOrFail($data['storage_location_id']);
         $wheels = $data['wheels']; unset($data['wheels']);
         $minimum = (float) collect($wheels)->min('tread_depth_mm');
-        $set = DB::transaction(function () use ($data, $wheels, $minimum, $shelf, $org, $request) {
-            $set = TireSet::create([...$data, 'minimum_tread_depth' => $minimum, 'storage_shelf_number' => $shelf, 'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'code' => 'HJ-'.strtoupper(Str::random(8)), 'status' => $data['storage_location_id'] ? 'stored' : 'received', 'received_at' => now()]);
+        $set = DB::transaction(function () use ($data, $wheels, $minimum, $location, $placement, $org, $request) {
+            $coordinates = $placement->coordinates($location, null, $data);
+            $set = TireSet::create([...$data, 'minimum_tread_depth' => $minimum, ...$coordinates, 'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'code' => 'HJ-'.strtoupper(Str::random(8)), 'status' => $location ? 'stored' : 'received', 'received_at' => now()]);
             $status = $minimum < 3 ? 'replace' : ($minimum < 4 ? 'attention' : 'good');
             $inspection = TireInspection::create(['public_id' => (string) Str::uuid(), 'organization_id' => $org, 'tire_set_id' => $set->id, 'inspected_by' => $request->user()->id, 'overall_status' => $status, 'inspected_at' => now()]);
             foreach ($wheels as $wheel) $inspection->measurements()->create([...$wheel, 'dot_year' => $data['dot_year'] ?? null, 'tpms_status' => 'not_checked', 'tire_damage' => false, 'rim_damage' => false, 'uneven_wear' => false]);
@@ -372,23 +374,51 @@ class OperationsController extends Controller
     public function updateTireSetStatus(Request $request, TireSet $tireSet, WarehousePlacementService $placement, TireHotelService $hotel): RedirectResponse
     {
         abort_unless($tireSet->organization_id === $request->user()->organization_id, 404);
-        $data = $request->validate(['status' => ['required', 'in:received,stored,picked,workshop,delivered'], 'storage_location_id' => ['nullable', 'integer']]);
-        $location = null;
-        if (! empty($data['storage_location_id'])) $location = StorageLocation::where('organization_id', $tireSet->organization_id)->whereKey($data['storage_location_id'])->firstOrFail();
-        $updates = ['status' => $data['status']];
-        if (!$tireSet->received_at) $updates['received_at'] = now();
-        if($data['status']==='received'&&$tireSet->status!=='received')$updates+=['minimum_tread_depth'=>null,'wash_status'=>'needed','washed'=>false,'received_at'=>now(),'delivered_at'=>null];
-        if (array_key_exists('storage_location_id', $data)) { $updates['storage_location_id'] = $data['storage_location_id']; $updates['storage_shelf_number'] = $location ? $placement->nextShelf($location) : null; if ($location && $updates['storage_shelf_number'] === null) return back()->withErrors(['storage_location_id' => $location->code.' er full.']); }
-        if ($data['status'] === 'delivered') $updates['delivered_at'] = now();
-        elseif ($tireSet->delivered_at) $updates['delivered_at'] = null;
-        $fromLocation = $tireSet->storage_location_id;
-        DB::transaction(function () use ($tireSet, $updates, $request, $fromLocation) {
+        $data = $request->validate([
+            'status' => ['required', 'in:received,stored,picked,workshop,delivered'],
+            'storage_location_id' => ['nullable', 'integer'],
+            ...WarehousePlacementService::rules(),
+        ]);
+        DB::transaction(function () use ($tireSet, $data, $request, $placement) {
+            $fromLocation = $tireSet->storage_location_id;
+            $fromCoordinates = $tireSet->only(['storage_shelf_number', 'storage_position_number']);
+            $locationId = array_key_exists('storage_location_id', $data) ? $data['storage_location_id'] : $fromLocation;
+            $location = $locationId ? StorageLocation::where('organization_id', $tireSet->organization_id)->findOrFail($locationId) : null;
+            $coordinates = $data['status'] === 'delivered'
+                ? ['storage_shelf_number' => null, 'storage_position_number' => null]
+                : $placement->coordinates($location, $tireSet, $data);
+            $updates = ['status' => $data['status'], 'storage_location_id' => $location?->id, ...$coordinates];
+            if (!$tireSet->received_at) $updates['received_at'] = now();
+            if ($data['status'] === 'received' && $tireSet->status !== 'received') {
+                $updates += ['minimum_tread_depth' => null, 'wash_status' => 'needed', 'washed' => false, 'received_at' => now()];
+            }
+            $updates['delivered_at'] = $data['status'] === 'delivered' ? now() : null;
             $tireSet->update($updates);
-            $toLocation = $tireSet->storage_location_id;
-            if ($fromLocation !== $toLocation) DB::table('storage_location_movements')->insert(['organization_id'=>$tireSet->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$fromLocation,'to_location_id'=>$toLocation,'moved_by'=>$request->user()->id,'reason'=>'web_workflow','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
+            if ($fromLocation !== $location?->id || $fromCoordinates != $coordinates) {
+                DB::table('storage_location_movements')->insert(['organization_id'=>$tireSet->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$fromLocation,'to_location_id'=>$location?->id,'moved_by'=>$request->user()->id,'reason'=>'web_workflow','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
+                DB::table('audit_logs')->insert(['organization_id'=>$tireSet->organization_id,'user_id'=>$request->user()->id,'action'=>'tire_set.placement.updated','subject_type'=>TireSet::class,'subject_id'=>$tireSet->id,'metadata'=>json_encode(['from'=>$fromCoordinates,'to'=>$coordinates]),'created_at'=>now()]);
+            }
         });
-        if(in_array($tireSet->status,['received','stored','picked','workshop'],true))$hotel->ensureAgreement($tireSet);
-        return back()->with('success', 'Hjulsettet er flyttet til «'.['received'=>'Mottatt','stored'=>'På lager','picked'=>'Plukket','workshop'=>'Verksted','delivered'=>'Utlevert'][$data['status']].'».');
+        return back()->with('success', 'Hjulsettet er oppdatert. Plass: '.$tireSet->fresh()->storage_label.'.');
+    }
+
+    public function destroyTireSet(Request $request, TireSet $tireSet): RedirectResponse
+    {
+        abort_unless($tireSet->organization_id === $request->user()->organization_id, 404);
+        abort_unless($request->user()->is_super_admin || in_array($request->user()->role, ['owner', 'admin', 'manager'], true), 403);
+        $request->validate(['confirmation' => ['required', Rule::in([$tireSet->code])]]);
+        $customer = $tireSet->vehicle->customer;
+        DB::transaction(function () use ($request, $tireSet) {
+            DB::table('audit_logs')->insert([
+                'organization_id' => $tireSet->organization_id, 'user_id' => $request->user()->id,
+                'action' => 'tire_set.registration_deleted', 'subject_type' => TireSet::class,
+                'subject_id' => $tireSet->id, 'ip_address' => $request->ip(),
+                'metadata' => json_encode($tireSet->only(['code', 'vehicle_id', 'status', 'storage_location_id', 'storage_shelf_number', 'storage_position_number'])),
+                'created_at' => now(),
+            ]);
+            $tireSet->delete();
+        });
+        return redirect()->route('customers.show', $customer)->with('success', 'Feilregistreringen '.$tireSet->code.' er slettet fra oversiktene. Historikken er bevart.');
     }
 
     public function tireLabels(Request $request): View
@@ -608,7 +638,7 @@ class OperationsController extends Controller
             if($tireSet){
                 $receiving=StorageLocation::where('organization_id',$booking->organization_id)->where('branch_id',$booking->branch_id)->where('active',true)->where(fn($q)=>$q->where('location_type','receiving')->orWhere('code','MOTTAK'))->orderByRaw("CASE WHEN code = 'MOTTAK' THEN 0 ELSE 1 END")->first();
                 $from=$tireSet->storage_location_id;
-                $tireSet->update(['status'=>'received','storage_location_id'=>$receiving?->id,'storage_shelf_number'=>null,'wash_status'=>'needed','washed'=>false,'minimum_tread_depth'=>null,'received_at'=>now(),'delivered_at'=>null]);
+                $tireSet->update(['status'=>'received','storage_location_id'=>$receiving?->id,'storage_shelf_number'=>null,'storage_position_number'=>null,'wash_status'=>'needed','washed'=>false,'minimum_tread_depth'=>null,'received_at'=>now(),'delivered_at'=>null]);
                 if($from!==$receiving?->id)DB::table('storage_location_movements')->insert(['organization_id'=>$booking->organization_id,'tire_set_id'=>$tireSet->id,'from_location_id'=>$from,'to_location_id'=>$receiving?->id,'moved_by'=>$request->user()->id,'reason'=>'return_from_completed_booking','moved_at'=>now(),'created_at'=>now(),'updated_at'=>now()]);
                 $order=$workflow->createWorkOrder($booking);$order->update(['status'=>'in_progress','completed_at'=>null]);
                 foreach(['Mottak: kontroller og skann hjulsett','Vask hjulsett','Mål mønsterdybde på alle fire hjul','Kontroller tilstand og dokumenter avvik','Tildel lagerplass og sett hjulsett på lager']as$position=>$name)$order->tasks()->updateOrCreate(['name'=>$name],['required'=>true,'completed'=>false,'completed_by'=>null,'completed_at'=>null,'position'=>20+$position]);

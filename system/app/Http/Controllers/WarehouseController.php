@@ -51,8 +51,16 @@ class WarehouseController extends Controller
     {
         $this->owns($request, $location);
         $data = $this->validated($request, $location); $data['capacity'] = $data['shelf_count'] * $data['sets_per_shelf'];
-        if ($location->tireSets()->whereNotIn('status', ['delivered'])->count() > $data['capacity']) return back()->withErrors(['location' => 'Reolen inneholder flere hjulsett enn den nye kapasiteten.']);
-        $location->update($data);
+        DB::transaction(function () use ($location, $data) {
+            $location = StorageLocation::whereKey($location->id)->lockForUpdate()->firstOrFail();
+            $sets = $location->tireSets()->whereNotIn('status', ['delivered'])->lockForUpdate()->get();
+            $outside = $sets->contains(fn ($set) => $set->storage_shelf_number > $data['shelf_count'] || $set->storage_position_number > $data['sets_per_shelf']);
+            $fullHeight = $sets->whereNotNull('storage_shelf_number')->groupBy('storage_shelf_number')->contains(fn ($items) => $items->count() > $data['sets_per_shelf']);
+            if ($sets->count() > $data['capacity'] || $outside || $fullHeight) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['location' => 'Flytt hjulsett som står utenfor de nye målene før du reduserer lengde eller høyde.']);
+            }
+            $location->update($data);
+        });
         return back()->with('success', $location->code.' er oppdatert.');
     }
 
@@ -135,7 +143,7 @@ class WarehouseController extends Controller
     private function attachShelfCounts($locations): void
     {
         if ($locations->isEmpty()) return;
-        $counts = DB::table('tire_sets')->selectRaw('storage_location_id, storage_shelf_number, count(*) total')->whereIn('storage_location_id', $locations->pluck('id'))->whereNotIn('status', ['delivered'])->groupBy('storage_location_id', 'storage_shelf_number')->get()->groupBy('storage_location_id');
+        $counts = DB::table('tire_sets')->whereNull('deleted_at')->selectRaw('storage_location_id, storage_shelf_number, count(*) total')->whereIn('storage_location_id', $locations->pluck('id'))->whereNotIn('status', ['delivered'])->groupBy('storage_location_id', 'storage_shelf_number')->get()->groupBy('storage_location_id');
         $locations->each(fn ($location) => $location->setAttribute('shelf_counts', ($counts[$location->id] ?? collect())->pluck('total', 'storage_shelf_number')));
     }
 

@@ -123,6 +123,7 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::get('/lagerkart', [WarehouseController::class, 'map'])->name('warehouse.map');
     Route::post('/lager/hjulsett', [OperationsController::class, 'storeTireSet'])->name('tire-sets.store');
     Route::patch('/lager/hjulsett/{tireSet}/status', [OperationsController::class, 'updateTireSetStatus'])->name('tire-sets.status');
+    Route::delete('/lager/hjulsett/{tireSet}', [OperationsController::class, 'destroyTireSet'])->name('tire-sets.destroy');
     Route::get('/lager/etiketter', [OperationsController::class, 'tireLabels'])->name('tire-sets.labels');
     Route::post('/lager/etiketter/utskrevet', [OperationsController::class, 'markLabelsPrinted'])->name('tire-sets.labels.printed');
     Route::get('/lager/hjulsett/{tireSet}/kontroll', [WorkshopController::class, 'inspection'])->name('tire-sets.inspection');

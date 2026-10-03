@@ -31,6 +31,15 @@ class TireSet extends Model
         return $this->dot_year ? max(0, now()->year - (int) $this->dot_year) : null;
     }
 
+    public function getStorageLabelAttribute(): string
+    {
+        if (!$this->storage_location_id) return 'Ikke plassert';
+        $parts = [$this->storageLocation?->code ?? 'Ukjent rad/reol'];
+        $parts[] = $this->storage_position_number ? 'Lengde '.$this->storage_position_number : 'Lengde ikke angitt';
+        if ($this->storage_shelf_number) $parts[] = 'Høyde '.$this->storage_shelf_number;
+        return implode(' · ', $parts);
+    }
+
     public function getAgeAssessmentAttribute(): ?string
     {
         if ($this->age_years === null) return null;

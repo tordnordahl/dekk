@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
             input.checked = Number(input.value) === Number(tire.location_id);
             if (input.checked) input.disabled = false;
         });
+        form.querySelector('[name="storage_position_number"]').value = tire.storage_position_number || '';
+        form.querySelector('[name="storage_shelf_number"]').value = tire.storage_position_number ? (tire.storage_shelf_number || '') : '';
         form.querySelectorAll('[name="wash_status"]').forEach(input => { input.checked = input.value === (tire.wash_status === 'not_assessed' ? '' : tire.wash_status); });
         depths.forEach(input => { input.value = tire.measurements?.[input.dataset.actionDepth] ?? ''; });
         updateDepth();

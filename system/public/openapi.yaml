@@ -39,7 +39,20 @@ paths:
     patch:
       summary: Flytt hele hjulsettet i arbeidsflyten
       parameters: [{$ref: '#/components/parameters/TireSet'}]
-      responses: {'200': {description: Oppdatert}, '403': {description: Mangler workshop.write}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [picked, workshop, stored, delivered]}
+                storage_location_id: {type: integer, description: Rad/reol. Utelat for å beholde dagens rad.}
+                storage_position_number: {type: integer, minimum: 1, maximum: 50, description: Lengdeplass bortover. Oppgis sammen med høyde.}
+                storage_shelf_number: {type: integer, minimum: 1, maximum: 20, description: Høydenivå. Oppgis sammen med lengde.}
+              description: Manuelle koordinater må være innenfor reolens mål og ledige. Uten koordinater beholdes eksisterende plass eller første ledige tildeles.
+      responses: {'200': {description: Oppdatert}, '403': {description: Mangler workshop.write}, '422': {description: Ugyldig eller opptatt plass}}
   /tire-sets/{tireSet}/inspections:
     post:
       summary: Lagre fire hjulmålinger
