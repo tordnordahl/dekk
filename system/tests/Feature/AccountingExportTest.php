@@ -22,7 +22,7 @@ class AccountingExportTest extends TestCase
 
     private function setupBooking(): array
     {
-        $org=Organization::create(['public_id'=>Str::uuid(),'name'=>'Dekk AS']);
+        $org=Organization::create(['public_id'=>Str::uuid(),'name'=>'Dekk AS','organization_number'=>(string)(987650000+Organization::count())]);
         $branch=Branch::create(['public_id'=>Str::uuid(),'organization_id'=>$org->id,'name'=>'Oslo','code'=>'OSL']);
         $user=User::factory()->create(['organization_id'=>$org->id,'branch_id'=>$branch->id,'role'=>'owner','active'=>true]);
         $customer=Customer::create(['public_id'=>Str::uuid(),'organization_id'=>$org->id,'branch_id'=>$branch->id,'customer_number'=>'K000001','name'=>'Ola Kunde','email'=>'ola@example.no']);

@@ -9,8 +9,8 @@ class SystemHealthCheck extends Command{
   $stuckMessages=OutboundMessage::where('status','processing')->where('updated_at','<',now()->subMinutes(15))->update(['status'=>'queued','scheduled_at'=>now(),'last_error'=>'Automatisk hentet tilbake etter fastlåst behandling.']);
   $stuckInvoices=InvoiceExport::where('status','processing')->where('updated_at','<',now()->subMinutes(15))->update(['status'=>'queued','queued_at'=>now(),'last_error'=>'Automatisk hentet tilbake etter fastlåst behandling.']);
   if($stuckMessages)$issues[]=$stuckMessages.' fastlåste meldinger ble lagt tilbake i kø.';if($stuckInvoices)$issues[]=$stuckInvoices.' fastlåste fakturaer ble lagt tilbake i kø.';
-  $oldMessages=OutboundMessage::where('status','queued')->where('scheduled_at','<',now()->subMinutes(10))->count();$oldInvoices=InvoiceExport::where('status','queued')->where('queued_at','<',now()->subMinutes(10))->count();
-  if($oldMessages)$issues[]=$oldMessages.' meldinger har ventet mer enn 10 minutter.';if($oldInvoices)$issues[]=$oldInvoices.' fakturaer har ventet mer enn 10 minutter.';
+  $oldMessages=OutboundMessage::where('status','queued')->where('scheduled_at','<',now()->subMinutes(25))->count();$oldInvoices=InvoiceExport::where('status','queued')->where('queued_at','<',now()->subMinutes(25))->count();
+  if($oldMessages)$issues[]=$oldMessages.' meldinger har ventet mer enn 25 minutter.';if($oldInvoices)$issues[]=$oldInvoices.' fakturaer har ventet mer enn 25 minutter.';
   $invalidExports=InvoiceExport::where('status','exported')->whereNull('external_id')->count();if($invalidExports)$issues[]=$invalidExports.' eksporterte fakturaer mangler ekstern ID og må avstemmes.';
   $files=glob(storage_path('app/backups/dekkpilot-*.sql.gz'))?:[];usort($files,fn($a,$b)=>filemtime($b)<=>filemtime($a));$latest=$files[0]??null;$backupAge=$latest?(int)floor((time()-filemtime($latest))/3600):null;
   if(!$latest)$issues[]='Ingen databasebackup er funnet.';elseif($backupAge>30)$issues[]='Siste databasebackup er eldre enn 30 timer.';elseif(!$this->validGzip($latest))$issues[]='Siste databasebackup kan ikke leses som gzip.';

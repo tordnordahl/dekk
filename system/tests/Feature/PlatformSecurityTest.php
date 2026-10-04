@@ -45,9 +45,10 @@ class PlatformSecurityTest extends TestCase
     public function test_api_rejects_missing_and_accepts_hashed_token(): void
     {
         $user = $this->user();
+        $user->update(['role'=>'owner']);
         $this->getJson('/api/v1/customers')->assertUnauthorized();
         $plain = Str::random(64);
-        DB::table('personal_access_tokens')->insert(['user_id' => $user->id, 'name' => 'test', 'token_hash' => hash('sha256', $plain), 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('personal_access_tokens')->insert(['user_id' => $user->id, 'name' => 'test', 'abilities'=>json_encode(['read']), 'token_hash' => hash('sha256', $plain), 'created_at' => now(), 'updated_at' => now()]);
         $this->withToken($plain)->getJson('/api/v1/customers')->assertOk();
     }
 
@@ -64,7 +65,8 @@ class PlatformSecurityTest extends TestCase
     {
         $user = $this->user();
         $customer = Customer::create(['public_id' => Str::uuid(), 'organization_id' => $user->organization_id, 'branch_id' => $user->branch_id, 'customer_number' => 'K000002', 'name' => 'Kari Nordmann']);
-        Vehicle::create(['public_id' => Str::uuid(), 'organization_id' => $user->organization_id, 'customer_id' => $customer->id, 'registration_number' => 'AB12345']);
+        $vehicle=Vehicle::create(['public_id' => Str::uuid(), 'organization_id' => $user->organization_id, 'customer_id' => $customer->id, 'registration_number' => 'AB12345']);
+        TireSet::create(['public_id'=>Str::uuid(),'organization_id'=>$user->organization_id,'vehicle_id'=>$vehicle->id,'code'=>'SEARCH-SET','received_at'=>now(),'season'=>'winter','kind'=>'complete_wheels','quantity'=>4,'status'=>'received']);
 
         $this->actingAs($user)->get('/lager?q=Kari')->assertOk()->assertSee('AB12345');
         $this->actingAs($user)->get('/lager?q=AB123')->assertOk()->assertSee('Kari Nordmann');
@@ -100,33 +102,25 @@ class PlatformSecurityTest extends TestCase
             ->assertSessionHasErrors('registration_number');
     }
 
-    public function test_only_admin_can_generate_and_remove_dummy_data(): void
+    public function test_only_superadmin_can_generate_and_remove_dummy_data(): void
     {
-        $employee = $this->user();
-        $this->actingAs($employee)->get('/admin')->assertForbidden();
-
-        $employee->update(['role' => 'owner']);
-        config(['services.vegvesen.api_key'=>'test-key']);
-        $vehicleResponse = ['kjoretoydataListe' => [[
-            'forstegangsregistrering' => ['registrertForstegangNorgeDato' => '2021-03-01'],
-            'godkjenning' => ['tekniskGodkjenning' => ['tekniskeData' => [
-                'generelt' => ['merke' => [['merke' => 'Volvo']], 'handelsbetegnelse' => ['XC60'], 'understellsnummer' => 'TESTVIN123456789'],
-                'akslinger' => ['akslingListe' => [['dekkOgFelg' => ['dekkdimensjon' => '235/55 R19', 'felgdimensjon' => '7.5Jx19']]]],
-            ]]],
-        ]]];
-        Http::fake(fn($request) => Http::response($vehicleResponse, 200));
-        $this->actingAs($employee)->post('/admin/dummydata', ['registration_numbers' => "AB12345\nCD67890"])->assertRedirect()->assertSessionHasNoErrors();
-        $this->assertDatabaseCount('customers', 2);
-        $this->assertDatabaseCount('vehicles', 2);
-        $this->assertDatabaseCount('tire_sets', 2);
-        $this->assertDatabaseHas('customers', ['notes' => '[DUMMY] Generert fra adminverktøyet.']);
-        $this->assertDatabaseHas('vehicles',['registration_number'=>'AB12345','make'=>'Volvo','model'=>'XC60','recommended_tire_size'=>'235/55 R19']);
-        $this->assertDatabaseHas('tire_sets',['size'=>'235/55 R19']);
-
-        $this->actingAs($employee)->delete('/admin/dummydata', ['confirmation' => 'SLETT DUMMYDATA'])->assertRedirect();
-        $this->assertDatabaseCount('customers', 0);
-        $this->assertDatabaseCount('vehicles', 0);
-        $this->assertDatabaseCount('tire_sets', 0);
+        $employee=$this->user();$employee->update(['role'=>'owner']);
+        $data=['organization_id'=>$employee->organization_id,'sets'=>50,'confirmed'=>1];
+        $this->actingAs($employee)->post(route('superadmin.dummy.generate'),$data)->assertForbidden();
+        $this->delete(route('superadmin.dummy.delete'),$data)->assertForbidden();
+        $real=Customer::create(['public_id'=>Str::uuid(),'organization_id'=>$employee->organization_id,'branch_id'=>$employee->branch_id,'customer_number'=>'REAL-1','name'=>'Ekte kunde']);
+        $this->travel(11)->minutes();
+        $employee->update(['is_super_admin'=>true]);
+        $this->post(route('superadmin.dummy.generate'),$data)->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertGreaterThanOrEqual(50,Vehicle::count());
+        $this->assertGreaterThanOrEqual(50,TireSet::count());
+        $this->assertGreaterThan(1,Customer::count());
+        $this->travel(11)->minutes();
+        $this->delete(route('superadmin.dummy.delete'),$data)->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('customers',['id'=>$real->id,'deleted_at'=>null]);
+        $this->assertDatabaseCount('customers',1);
+        $this->assertDatabaseCount('vehicles',0);
+        $this->assertDatabaseCount('tire_sets',0);
     }
 
     public function test_quote_uses_hashed_expiring_token_and_can_be_accepted_once(): void

@@ -22,17 +22,19 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('quotes:follow-up')->dailyAt('09:00')->withoutOverlapping();
         $schedule->command('bookings:confirmations')->hourly()->withoutOverlapping();
-        $schedule->command('communications:process')->everyMinute()->withoutOverlapping();
-        $schedule->command('accounting:process')->everyMinute()->withoutOverlapping();
+        $schedule->command('communications:process')->everyTenMinutes()->withoutOverlapping();
+        $schedule->command('accounting:process')->everyTenMinutes()->withoutOverlapping();
         // Dagens ubetalte jobber faktureres samlet etter stengetid.
-        $schedule->command('checkout:invoice-expired')->dailyAt('23:55')->withoutOverlapping();
+        $schedule->command('checkout:invoice-expired')->dailyAt('23:50')->withoutOverlapping();
         $schedule->command('billing:prepare')->monthlyOn(1, '02:30')->withoutOverlapping();
-        $schedule->command('hotel:generate-charges')->dailyAt('02:15')->withoutOverlapping();
-        $schedule->command('backup:database')->dailyAt('03:15')->withoutOverlapping();
-        $schedule->command('system:health')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('hotel:generate-charges')->dailyAt('02:10')->withoutOverlapping();
+        $schedule->command('backup:database')->dailyAt('03:10')->withoutOverlapping();
+        $schedule->command('system:health')->everyTenMinutes()->withoutOverlapping();
         $schedule->command('inventory:release-expired')->hourly()->withoutOverlapping();
         $schedule->command('accounting:verify')->dailyAt('04:00')->withoutOverlapping();
         $schedule->command('privacy:cleanup')->dailyAt('04:30')->withoutOverlapping();
+        // Domeneshop: all jobs must align with a ten-minute cron; local night times use Oslo.
+        foreach ($schedule->events() as $event) $event->timezone('Europe/Oslo');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontFlash(['secret', 'webhook_secret', 'merchant_secret', 'merchant_webhook_secret', 'client_secret', 'subscription_key']);
