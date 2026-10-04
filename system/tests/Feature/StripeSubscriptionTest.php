@@ -328,4 +328,66 @@ class StripeSubscriptionTest extends TestCase
         $page=$this->get('/kunder')->assertOk();
         $this->assertStringNotContainsString('https://checkout.stripe.com',$page->headers->get('Content-Security-Policy'));
     }
+
+    public function test_free_access_without_stripe_starts_once_and_expires_without_cron(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-04 12:00:00','UTC'));
+        $owner=$this->user();$org=$owner->organization;$key=(string)Str::uuid();
+        app(StripeBillingService::class)->grantFreeMonth($org,$key);
+        $this->actingAs($owner)->withSession(['billing_notice_login'=>true])->get('/abonnement')->assertSee('Du har fått én gratis måned')->assertSee('Start gratisperioden uten Stripe');
+        $this->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertRedirect('/');
+        $until=$org->fresh()->free_access_until->toIso8601String();
+        $this->assertSame('2026-11-04 14:00',$org->fresh()->free_access_until->timezone('Europe/Oslo')->format('Y-m-d H:i'));
+        $this->get('/')->assertOk()->assertSee('Gratis tilgang til');
+        $this->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertRedirect('/');
+        $this->assertSame($until,$org->fresh()->free_access_until->toIso8601String());
+        Http::assertNothingSent();
+        $this->travelTo($org->fresh()->free_access_until->copy()->subDays(3));
+        $this->get('/')->assertOk()->assertSee('Gratisperioden utløper snart');
+        $this->travelTo($org->fresh()->free_access_until);
+        $this->get('/kunder')->assertRedirect('/abonnement');
+        $this->getJson('/kunder')->assertStatus(402);
+        $this->get('/abonnement')->assertSee('Aktiver abonnementet')->assertDontSee('Start gratisperioden uten Stripe');
+        $this->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1]);
+        $this->assertFalse($org->fresh()->hasSubscriptionAccess());
+    }
+    public function test_free_access_requires_actual_grant_owner_and_confirmation(): void
+    {
+        $owner=$this->user();$key=(string)Str::uuid();$this->actingAs($owner);
+        $this->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertSessionHasErrors('stripe');
+        app(StripeBillingService::class)->grantFreeMonth($owner->organization,$key);
+        $this->post(route('billing.free-access'),['grant_key'=>$key])->assertSessionHasErrors('confirm');
+        $staff=$this->user('technician');
+        $this->actingAs($staff)->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertForbidden();
+        $owner->organization->update(['suspended_at'=>now()]);
+        $this->actingAs($owner)->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertSessionHasErrors('stripe');
+        $this->assertNull($owner->organization->fresh()->free_access_until);
+    }
+    public function test_consumed_free_access_is_not_also_discounted_in_stripe_and_new_grants_are_possible(): void
+    {
+        $owner=$this->user();$org=$owner->organization;$key=(string)Str::uuid();$service=app(StripeBillingService::class);
+        $service->grantFreeMonth($org,$key);$service->activateFreeAccess($org,$key);
+        $this->actingAs($owner)->post(route('billing.checkout'),['accept_subscription'=>1])->assertSessionHasErrors('stripe');
+        $end=$org->fresh()->free_access_until;
+        $this->travelTo($end->copy()->addSecond());
+        $this->gateway($org);
+        $service->checkout($org);
+        Http::assertSent(fn($r)=>str_ends_with($r->url(),'/checkout/sessions') && !isset($r['discounts']));
+        $org->refresh()->update(['stripe_checkout_key'=>null,'stripe_checkout_session_id'=>null,'stripe_customer_id'=>null]);
+        $later=(string)Str::uuid();$service->grantFreeMonth($org,$later,2);$service->activateFreeAccess($org,$later);
+        $this->assertTrue($org->fresh()->hasFreeAccess());
+        $this->assertDatabaseCount('subscription_notices',2);
+    }
+    public function test_existing_stripe_session_is_expired_before_free_access_and_failure_keeps_access_closed(): void
+    {
+        $owner=$this->user();$org=$owner->organization;$key=(string)Str::uuid();$service=app(StripeBillingService::class);
+        $service->grantFreeMonth($org,$key);$org->refresh()->update(['stripe_customer_id'=>'cus_pending','stripe_checkout_key'=>Str::uuid(),'stripe_checkout_session_id'=>'cs_pending']);
+        Http::fake(['*/subscriptions*'=>Http::response(['data'=>[]]),'*/checkout/sessions/cs_pending'=>Http::response(['id'=>'cs_pending','status'=>'open']),'*/checkout/sessions/cs_pending/expire'=>Http::sequence()->push([],503)->push(['id'=>'cs_pending','status'=>'expired'])]);
+        $this->actingAs($owner)->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertSessionHasErrors('stripe');
+        $this->assertFalse($org->fresh()->hasFreeAccess());
+        $this->get('/abonnement');
+        $this->post(route('billing.free-access'),['grant_key'=>$key,'confirm'=>1])->assertSessionHasNoErrors();
+        $this->assertTrue($org->fresh()->hasFreeAccess());
+        $this->assertNull($org->fresh()->stripe_checkout_session_id);
+    }
 }

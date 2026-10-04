@@ -24,6 +24,17 @@ class BillingController extends Controller
         ]);
     }
 
+    public function activateFreeAccess(Request $request, StripeBillingService $stripe): RedirectResponse
+    {
+        $data=$request->validate(['grant_key'=>['required','uuid'],'confirm'=>['accepted']]);
+        return $this->run(function() use($request,$stripe,$data) {
+            $org=$this->organization($request);
+            $stripe->activateFreeAccess($org,$data['grant_key']);
+            DB::table('audit_logs')->insert(['organization_id'=>$org->id,'user_id'=>$request->user()->id,'action'=>'billing.free_access.activated','metadata'=>json_encode(['grant_key'=>$data['grant_key']]),'created_at'=>now()]);
+            return redirect()->route('dashboard')->with('success','Gratisperioden er aktiv til '.$org->fresh()->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i').'. Du blir ikke belastet automatisk. Etter perioden må Stripe-abonnement aktiveres.');
+        });
+    }
+
     public function checkout(Request $request, StripeBillingService $stripe): RedirectResponse
     {
         $request->validate(['accept_subscription'=>['accepted']]);

@@ -71,6 +71,7 @@ class StripeBillingService
     {
         return $this->locked($org, function (Organization $org) {
             if ($org->suspended_at) throw new RuntimeException('Tilgangen er stengt av DekkPilot. Kontakt systemeier før du starter abonnement.');
+            if ($org->hasFreeAccess()) throw new RuntimeException('Gratisperioden varer til '.$org->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i').'. Aktiver Stripe når perioden er over.');
             if (!$this->ready()) throw new RuntimeException('Stripe er ikke ferdig konfigurert. Kontakt systemeier.');
             if ($org->organization_number === 'DEMO-DEKKPILOT') throw new RuntimeException('Demoen kan ikke faktureres.');
             $price = $this->validatePrice();
@@ -108,7 +109,7 @@ class StripeBillingService
                 'metadata'=>['organization_id'=>(string)$org->id],
                 'subscription_data'=>['metadata'=>['organization_id'=>(string)$org->id]],
             ];
-            if ($org->stripe_free_month_granted_at && !$org->stripe_free_month_applied_at) {
+            if ($org->hasUnusedFreeGrant()) {
                 $data['discounts'] = [['coupon'=>$this->coupon($org, $price)]];
                 $data['subscription_data']['metadata']['free_month_key'] = $org->stripe_free_month_key;
             }
@@ -174,7 +175,7 @@ class StripeBillingService
             'stripe_cancel_at_period_end'=>(bool)($subscription['cancel_at_period_end'] ?? false),
         ];
         if ($org->stripe_free_month_key && data_get($subscription,'metadata.free_month_key') === $org->stripe_free_month_key
-            && in_array($status, ['active','trialing'], true) && !$org->stripe_free_month_applied_at) {
+            && in_array($status, ['active','trialing'], true) && $org->hasUnusedFreeGrant()) {
             $updates['stripe_free_month_applied_at'] = now();
         }
         $updates['stripe_synced_at']=now();
@@ -193,8 +194,8 @@ class StripeBillingService
         $this->locked($org, function (Organization $org) use ($key,$months) {
             if ($org->stripe_free_month_key===$key && (int)$org->stripe_free_month_count!==$months) throw new RuntimeException('Denne tildelingen har allerede et annet antall måneder. Last siden på nytt.');
             if ($org->organization_number === 'DEMO-DEKKPILOT') throw new RuntimeException('Demoen trenger ikke abonnement.');
-            if ($org->stripe_free_month_key === $key && $org->stripe_free_month_applied_at) { $this->queueNotices($org); return; }
-            if ($org->stripe_free_month_granted_at && !$org->stripe_free_month_applied_at && $org->stripe_free_month_key !== $key) {
+            if ($org->stripe_free_month_key === $key && ($org->stripe_free_month_applied_at || $org->free_access_grant_key === $key)) { $this->queueNotices($org); return; }
+            if ($org->hasUnusedFreeGrant() && $org->stripe_free_month_key !== $key) {
                 throw new RuntimeException('Virksomheten har allerede en gratismåned som venter på aktivering.');
             }
             $subscription = null;
@@ -230,6 +231,38 @@ class StripeBillingService
                 $this->applySubscription($org,$updated);
             }
             $this->queueNotices($org);
+        });
+    }
+
+    public function activateFreeAccess(Organization $org, string $key): void
+    {
+        $this->locked($org,function(Organization $org) use($key) {
+            if ($org->suspended_at) throw new RuntimeException('Virksomheten er stengt. Kontakt systemeier.');
+            if ($org->stripe_free_month_key !== $key) throw new RuntimeException('Gratistildelingen er endret. Last siden på nytt.');
+            if ($org->free_access_grant_key === $key) return;
+            if (!$org->hasUnusedFreeGrant()) throw new RuntimeException('Ingen ubrukte gratismåneder er tildelt.');
+            if ($org->stripe_customer_id) {
+                $subscriptions=$this->request('get','/subscriptions',['customer'=>$org->stripe_customer_id,'status'=>'all','limit'=>100]);
+                if ($subscriptions['has_more']??false) throw new RuntimeException('Abonnementet må avklares før gratisperioden kan startes.');
+                foreach($subscriptions['data']??[] as $subscription) {
+                    if (!in_array($subscription['status'],['canceled','incomplete_expired'],true)) throw new RuntimeException('Virksomheten har allerede et Stripe-abonnement. Gratismåneder må brukes på dette abonnementet.');
+                }
+            }
+            if ($org->stripe_subscription_id && !in_array($org->subscription_status,['canceled','incomplete_expired'],true)) throw new RuntimeException('Virksomheten har allerede et Stripe-abonnement.');
+            if ($org->stripe_checkout_key && !$org->stripe_checkout_session_id) throw new RuntimeException('Et påbegynt Stripe-forsøk må avklares først. Gjenoppta betalingsforsøket eller kontakt systemeier.');
+            if ($org->stripe_checkout_session_id) {
+                $session=$this->retrieveSession($org->stripe_checkout_session_id);
+                if (($session['status']??'')==='complete') {
+                    $this->syncSession($org,$session);
+                    throw new RuntimeException('Stripe-abonnementet er allerede opprettet. Oppdater status.');
+                }
+                if (($session['status']??'')==='open') $session=$this->request('post','/checkout/sessions/'.$session['id'].'/expire',[],'expire-'.$session['id']);
+                if (($session['status']??'')!=='expired') throw new RuntimeException('Stripe-forsøket er ikke avklart. Prøv igjen senere.');
+            }
+            $start=$org->hasFreeAccess()?$org->free_access_until->copy():now();
+            $org->update(['billing_model'=>'stripe','free_access_started_at'=>$org->free_access_started_at??now(),
+                'free_access_until'=>$start->timezone('Europe/Oslo')->addMonthsNoOverflow((int)$org->stripe_free_month_count)->utc(),
+                'free_access_grant_key'=>$key,'stripe_checkout_key'=>null,'stripe_checkout_session_id'=>null]);
         });
     }
 

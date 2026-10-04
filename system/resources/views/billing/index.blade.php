@@ -9,11 +9,12 @@
 @if($organization->suspended_at)
 <p>Tilgangen er stengt av DekkPilot. Kontakt systemeier for gjenåpning. Betaling åpner ikke tilgangen automatisk.</p>
 @else
-<p id="billing-gate-description">Kontoen er klar. Fullfør abonnementsbetalingen hos Stripe før du kan bruke DekkPilot.</p>
+@if($organization->free_access_until && !$organization->free_access_until->isFuture())<div class="errors" role="alert">Gratisperioden din utløp {{ $organization->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i') }}. Aktiver Stripe-abonnement for å fortsette. Ingen betaling er trukket automatisk.</div>@endif
+<p id="billing-gate-description">{{ $organization->hasUnusedFreeGrant() ? 'Kontoen er klar. Velg gratisperioden uten Stripe nedenfor, eller aktiver abonnementet hos Stripe.' : 'Kontoen er klar. Fullfør abonnementsbetalingen hos Stripe før du kan bruke DekkPilot.' }}</p>
 @endif
 <div class="billing-price"><strong>249 kr</strong><span>per måned inkl. mva.</span></div>
 <p>Alle funksjoner og brukere er inkludert. SMS faktureres separat etter bruk. Ingen bindingstid.</p>
-@if($organization->stripe_free_month_granted_at)<div class="usage-note">{{ $organization->stripe_free_month_count }} gratismåned(er) {{ $organization->stripe_free_month_applied_at?'er lagt til hos Stripe':'venter på aktivering' }}. Betalingskort registreres hos Stripe.</div>@endif
+@if($organization->hasUnusedFreeGrant() || $organization->stripe_free_month_applied_at)<div class="usage-note">{{ $organization->stripe_free_month_count }} gratismåned(er) {{ $organization->stripe_free_month_applied_at?'er lagt til hos Stripe':'venter på aktivering' }}. {{ $organization->hasUnusedFreeGrant() ? 'Velg gratis tilgang uten kort nedenfor, eller bruk rabatten hos Stripe.' : 'Rabatten gjelder Stripe-abonnementet.' }}</div>@endif
 @if(in_array($organization->subscription_status,['past_due','unpaid'],true))<div class="errors">En betaling mangler. Åpne Stripe for å betale eller oppdatere kortet, og hent deretter ny status.</div>@endif
 @include('billing.actions')
 <form method="post" action="{{ route('logout') }}">@csrf<button class="button ghost">Logg ut</button></form>
@@ -21,7 +22,7 @@
 <section class="grid form-grid"><article class="panel">
 <p class="eyebrow">DEKKPILOT</p><h2>249 kr per måned inkl. mva.</h2>
 <p>Alle funksjoner og brukere er inkludert. SMS faktureres separat etter bruk.</p>
-<p>Status: <strong>{{ ['active'=>'Aktivt','trialing'=>'Prøveperiode','incomplete'=>'Venter på betaling','incomplete_expired'=>'Betaling utløpt','past_due'=>'Betaling mangler','unpaid'=>'Ikke betalt','canceled'=>'Avsluttet','paused'=>'Satt på pause'][$organization->subscription_status] ?? $organization->subscription_status }}</strong></p>
+<p>Status: <strong>{{ $organization->hasFreeAccess() ? 'Gratisperiode' : (['active'=>'Aktivt','trialing'=>'Prøveperiode','incomplete'=>'Venter på betaling','incomplete_expired'=>'Betaling utløpt','past_due'=>'Betaling mangler','unpaid'=>'Ikke betalt','canceled'=>'Avsluttet','paused'=>'Satt på pause'][$organization->subscription_status] ?? $organization->subscription_status) }}</strong></p>
 @if($organization->suspended_at)
 <div class="usage-note"><strong>Tilgangen er stengt av DekkPilot</strong><span>Kontakt DekkPilot for gjenåpning. Betaling åpner ikke tilgangen automatisk. Du kan fortsatt administrere eller si opp abonnementet hos Stripe.</span></div>
 @elseif($organization->hasSubscriptionAccess())
@@ -30,7 +31,7 @@
 <div class="usage-note"><strong>Aktiver abonnementet for å åpne systemet</strong><span>Kontoen og dataene dine er bevart. Eier eller administrator må fullføre betalingen hos Stripe.</span></div>
 @endif
 @if($organization->subscription_ends_at)<p>{{ $organization->stripe_cancel_at_period_end ? 'Abonnementet avsluttes' : 'Gjeldende periode slutter' }} {{ $organization->subscription_ends_at->format('d.m.Y') }}.</p>@endif
-@if($organization->stripe_free_month_granted_at)
+@if($organization->hasUnusedFreeGrant() || $organization->stripe_free_month_applied_at)
 <p>{{ $organization->stripe_free_month_applied_at ? $organization->stripe_free_month_count.' gratismåned(er) lagt til hos Stripe' : $organization->stripe_free_month_count.' gratismåned(er) venter på aktivering' }}. Gjelder abonnementet; SMS kommer i tillegg.</p>
 @endif
 <p>SMS denne måneden: <strong>{{ number_format($smsUsage,0,',',' ') }}</strong>.</p>

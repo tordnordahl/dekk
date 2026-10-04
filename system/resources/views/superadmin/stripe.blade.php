@@ -13,5 +13,5 @@
 <button class="button">Kontroller, koble til og aktiver</button>
 </form>
 </section>
-<section class="panel"><h2>Gi gratis måneder</h2><p>Åpne virksomheten i superadminoversikten og velg «Gi gratis måneder» og antall (1–12). De første abonnementsmånedene blir gratis hvis de ikke har startet. For et aktivt abonnement gjelder rabatten kommende månedsbetalinger. Du kan gi nye måneder når forrige rabatt er brukt. Kunden må registrere betalingskort også når første måned er gratis. SMS faktureres separat.</p></section>
+<section class="panel"><h2>Gi gratis måneder</h2><p>Åpne virksomheten i superadminoversikten og velg «Gi gratis måneder» og antall (1–12). De første abonnementsmånedene blir gratis hvis de ikke har startet. For et aktivt abonnement gjelder rabatten kommende månedsbetalinger. Du kan gi nye måneder når forrige rabatt er brukt. Kunder uten aktivt Stripe-abonnement kan velge å starte tildelte gratismåneder uten kort. Tilgangen stenges automatisk ved utløp dersom abonnementet ikke er aktivert. SMS faktureres separat.</p></section>
 </x-layouts.app>

@@ -117,6 +117,7 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::post('/betalinger/{payment:public_id}/zettle-bekreft', [\App\Http\Controllers\MerchantPaymentsController::class, 'confirmZettle'])->middleware('role:owner,admin,manager,customer_service')->name('payments.zettle.confirm');
     Route::get('/abonnement', [BillingController::class, 'index'])->name('billing');
     Route::middleware('role:owner,admin')->group(function () {
+        Route::post('/abonnement/gratisperiode', [BillingController::class, 'activateFreeAccess'])->middleware('throttle:10,1')->name('billing.free-access');
         Route::post('/abonnement/checkout', [BillingController::class, 'checkout'])->middleware('throttle:10,1')->name('billing.checkout');
         Route::post('/abonnement/portal', [BillingController::class, 'portal'])->middleware('throttle:10,1')->name('billing.portal');
         Route::get('/abonnement/ferdig', [BillingController::class, 'success'])->middleware('throttle:20,1')->name('billing.success');

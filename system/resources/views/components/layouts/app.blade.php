@@ -74,8 +74,12 @@
         @if(request()->attributes->has('subscription_notices'))
             @php(request()->attributes->set('subscription_notices_rendered', true))
             @foreach(request()->attributes->get('subscription_notices') as $notice)
-                <div class="flash" role="status"><strong>Du har fått {{ $notice->months == 1 ? 'én gratis måned' : $notice->months.' gratis måneder' }} med DekkPilot!</strong> Tildelt {{ \Carbon\Carbon::parse($notice->granted_at)->format('d.m.Y') }}. Rabatten gjelder {{ $notice->months }} abonnementsmåned(er), fra første eller neste betaling. SMS er ikke inkludert. <a href="{{ route('billing') }}">Se abonnementet</a></div>
+                <div class="flash" role="status"><strong>Du har fått {{ $notice->months == 1 ? 'én gratis måned' : $notice->months.' gratis måneder' }} med DekkPilot!</strong> Tildelt {{ \Carbon\Carbon::parse($notice->granted_at)->format('d.m.Y') }}. Du kan velge gratis tilgang uten Stripe på abonnementssiden, eller bruke tildelingen som rabatt hos Stripe. SMS er ikke inkludert. <a href="{{ route('billing') }}">Se abonnementet</a></div>
             @endforeach
+        @endif
+        @php($freeAccessOrg=auth()->user()->organization?->fresh())
+        @if(!auth()->user()->is_super_admin && $freeAccessOrg?->hasFreeAccess())
+        <div class="warning-flash" role="status"><strong>Gratis tilgang til {{ $freeAccessOrg->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i') }}.</strong> {{ now()->addDays(7)->gte($freeAccessOrg->free_access_until) ? 'Gratisperioden utløper snart. Etter sluttdatoen må du aktivere Stripe for å fortsette.' : 'Ingen kort er registrert for gratisperioden. Når den er over, må du aktivere abonnementet for å fortsette.' }} <a href="{{ route('billing') }}">Se abonnementet</a></div>
         @endif
         {{ $slot }}
     </main>
