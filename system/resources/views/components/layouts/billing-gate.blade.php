@@ -1,5 +1,5 @@
 <!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aktiver abonnement · DekkPilot</title>
-<link rel="stylesheet" href="{{ asset('app.css') }}"><link rel="stylesheet" href="{{ asset('billing-gate.css') }}?v=20261004-1"></head>
+<link rel="stylesheet" href="{{ asset('app.css') }}"><link rel="stylesheet" href="{{ route('system.asset',['filename'=>'billing-gate.css']) }}?v=20261004-1"></head>
 <body class="billing-gate-page"><div class="billing-backdrop" aria-hidden="true"><span>DekkPilot</span><div></div><div></div><div></div></div>
 <main class="billing-gate" role="dialog" aria-modal="true" aria-labelledby="billing-gate-title" tabindex="-1">
 @if(session('success'))<div class="flash" role="status">{{ session('success') }}</div>@endif
