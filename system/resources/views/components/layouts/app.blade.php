@@ -74,7 +74,7 @@
         @if(request()->attributes->has('subscription_notices'))
             @php(request()->attributes->set('subscription_notices_rendered', true))
             @foreach(request()->attributes->get('subscription_notices') as $notice)
-                <div class="flash" role="status"><strong>Du har fått én gratis måned med DekkPilot!</strong> Tildelt {{ \Carbon\Carbon::parse($notice->granted_at)->format('d.m.Y') }}. Rabatten gjelder første eller neste abonnementsmåned. SMS er ikke inkludert. <a href="{{ route('billing') }}">Se abonnementet</a></div>
+                <div class="flash" role="status"><strong>Du har fått {{ $notice->months == 1 ? 'én gratis måned' : $notice->months.' gratis måneder' }} med DekkPilot!</strong> Tildelt {{ \Carbon\Carbon::parse($notice->granted_at)->format('d.m.Y') }}. Rabatten gjelder {{ $notice->months }} abonnementsmåned(er), fra første eller neste betaling. SMS er ikke inkludert. <a href="{{ route('billing') }}">Se abonnementet</a></div>
             @endforeach
         @endif
         {{ $slot }}

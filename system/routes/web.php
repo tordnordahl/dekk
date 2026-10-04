@@ -45,6 +45,9 @@ Route::get('/api/systemressurs/{filename}', [\App\Http\Controllers\AssetControll
 Route::post('/webhooks/stripe/verksted/{organization:public_id}', \App\Http\Controllers\MerchantStripeWebhookController::class)->name('merchant.stripe.webhook');
 Route::post('/webhooks/stripe', \App\Http\Controllers\StripeWebhookController::class)->name('webhooks.stripe');
 Route::middleware(['auth','2fa','superadmin'])->group(function () {
+    Route::get('/superadmin/kunder/{organization}', [SuperAdminController::class, 'show'])->name('superadmin.customer');
+    Route::put('/superadmin/kunder/{organization}', [SuperAdminController::class, 'update'])->name('superadmin.customer.update');
+    Route::put('/superadmin/kunder/{organization}/tilgang', [SuperAdminController::class, 'access'])->name('superadmin.customer.access');
     Route::get('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'index'])->name('superadmin.stripe');
     Route::put('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'save'])->middleware('throttle:5,1')->name('superadmin.stripe.save');
     Route::post('/superadmin/{organization}/gratis-maned', [\App\Http\Controllers\SuperAdminStripeController::class, 'freeMonth'])->middleware('throttle:10,1')->name('superadmin.stripe.free-month');

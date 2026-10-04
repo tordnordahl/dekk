@@ -280,4 +280,31 @@ class StripeSubscriptionTest extends TestCase
         $this->artisan('billing:prepare',['--month'=>'2026-09'])->assertSuccessful();
         $this->assertDatabaseHas('billing_statements',['organization_id'=>$owner->organization_id,'subscription_cents'=>0,'total_cents'=>0]);
     }
+
+    public function test_multiple_free_months_are_applied_once_and_notice_shows_count(): void
+    {
+        $owner=$this->user();$org=$owner->organization;$super=$this->user('owner',true);$this->gateway($org);
+        $org->update(['stripe_customer_id'=>'cus_'.$org->id,'stripe_subscription_id'=>'sub_current']);
+        $key=(string)Str::uuid();
+        $this->actingAs($super)->post(route('superadmin.stripe.free-month',$org),['grant_key'=>$key,'months'=>3,'confirm'=>1])->assertSessionHasNoErrors();
+        Http::assertSent(fn($r)=>str_ends_with($r->url(),'/coupons') && $r['duration']==='repeating' && $r['duration_in_months']===3);
+        $this->post(route('superadmin.stripe.free-month',$org),['grant_key'=>$key,'months'=>3,'confirm'=>1])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('subscription_notices',1);
+        $this->post(route('superadmin.stripe.free-month',$org),['grant_key'=>$key,'months'=>2,'confirm'=>1])->assertSessionHasErrors('stripe');
+        $this->post(route('superadmin.stripe.free-month',$org),['grant_key'=>(string)Str::uuid(),'months'=>13,'confirm'=>1])->assertSessionHasErrors('months');
+        $this->actingAs($owner)->withSession(['billing_notice_login'=>true])->get('/abonnement')->assertSee('3 gratis måneder');
+        $this->get('/abonnement')->assertDontSee('Du har fått 3 gratis måneder');
+    }
+    public function test_invoice_snapshot_is_read_from_stripe_and_does_not_reopen_suspended_tenant(): void
+    {
+        $owner=$this->user();$org=$owner->organization;$this->gateway($org);
+        $org->update(['stripe_customer_id'=>'cus_'.$org->id,'stripe_subscription_id'=>'sub_current','suspended_at'=>now()]);
+        $this->subscription['latest_invoice']=['id'=>'in_current','customer'=>'cus_'.$org->id,'status'=>'paid','amount_paid'=>24900,'amount_remaining'=>0,'currency'=>'nok','secret'=>'not-stored'];
+        app(StripeBillingService::class)->refresh($org);
+        $this->assertSame(24900,$org->fresh()->stripe_latest_invoice['amount_paid']);
+        $this->assertArrayNotHasKey('secret',$org->fresh()->stripe_latest_invoice);
+        $this->assertFalse($org->fresh()->hasSubscriptionAccess());
+        $this->assertNotNull($org->fresh()->stripe_synced_at);
+        $this->actingAs($owner)->post(route('billing.checkout'),['accept_subscription'=>1])->assertSessionHasErrors('stripe');
+    }
 }

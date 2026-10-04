@@ -70,6 +70,7 @@ class StripeBillingService
     public function checkout(Organization $org): string
     {
         return $this->locked($org, function (Organization $org) {
+            if ($org->suspended_at) throw new RuntimeException('Tilgangen er stengt av DekkPilot. Kontakt systemeier før du starter abonnement.');
             if (!$this->ready()) throw new RuntimeException('Stripe er ikke ferdig konfigurert. Kontakt systemeier.');
             if ($org->organization_number === 'DEMO-DEKKPILOT') throw new RuntimeException('Demoen kan ikke faktureres.');
             $price = $this->validatePrice();
@@ -150,7 +151,7 @@ class StripeBillingService
 
     public function syncSubscription(Organization $org, string $id): void
     {
-        $this->applySubscription($org, $this->request('get', '/subscriptions/'.rawurlencode($id)));
+        $this->applySubscription($org, $this->request('get', '/subscriptions/'.rawurlencode($id), ['expand'=>['latest_invoice']]));
     }
 
     private function applySubscription(Organization $org, array $subscription): void
@@ -176,12 +177,21 @@ class StripeBillingService
             && in_array($status, ['active','trialing'], true) && !$org->stripe_free_month_applied_at) {
             $updates['stripe_free_month_applied_at'] = now();
         }
+        $updates['stripe_synced_at']=now();
+        $invoice=$subscription['latest_invoice']??null;
+        if (is_array($invoice) && ($invoice['customer']??null)===$org->stripe_customer_id) {
+            $updates['stripe_latest_invoice']=array_intersect_key($invoice,array_flip(['id','number','status','amount_due','amount_paid','amount_remaining','currency','created','status_transitions']));
+        } elseif (is_string($invoice) && data_get($org->stripe_latest_invoice,'id')!==$invoice) {
+            $updates['stripe_latest_invoice']=null;
+        }
         $org->update($updates);
     }
 
-    public function grantFreeMonth(Organization $org, string $key): void
+    public function grantFreeMonth(Organization $org, string $key, int $months=1): void
     {
-        $this->locked($org, function (Organization $org) use ($key) {
+        if ($months<1 || $months>12) throw new RuntimeException('Velg mellom 1 og 12 måneder.');
+        $this->locked($org, function (Organization $org) use ($key,$months) {
+            if ($org->stripe_free_month_key===$key && (int)$org->stripe_free_month_count!==$months) throw new RuntimeException('Denne tildelingen har allerede et annet antall måneder. Last siden på nytt.');
             if ($org->organization_number === 'DEMO-DEKKPILOT') throw new RuntimeException('Demoen trenger ikke abonnement.');
             if ($org->stripe_free_month_key === $key && $org->stripe_free_month_applied_at) { $this->queueNotices($org); return; }
             if ($org->stripe_free_month_granted_at && !$org->stripe_free_month_applied_at && $org->stripe_free_month_key !== $key) {
@@ -209,7 +219,7 @@ class StripeBillingService
                 $org->update(['stripe_checkout_key'=>null,'stripe_checkout_session_id'=>null]);
             }
             if ($org->stripe_free_month_key !== $key) $org->update([
-                'stripe_free_month_key'=>$key,'stripe_free_month_granted_at'=>now(),'stripe_free_month_applied_at'=>null,
+                'stripe_free_month_count'=>$months,'stripe_free_month_key'=>$key,'stripe_free_month_granted_at'=>now(),'stripe_free_month_applied_at'=>null,
             ]);
             if ($subscription) {
                 $coupon=$this->coupon($org,$this->validatePrice());
@@ -227,7 +237,7 @@ class StripeBillingService
     {
         $org->users()->where('active',true)->where('is_super_admin',false)->select('id')->chunkById(100,function($users) use ($org) {
             $rows=$users->map(fn($user)=>['organization_id'=>$org->id,'user_id'=>$user->id,'grant_key'=>$org->stripe_free_month_key,
-                'granted_at'=>$org->stripe_free_month_granted_at,'seen_at'=>null])->all();
+                'months'=>$org->stripe_free_month_count,'granted_at'=>$org->stripe_free_month_granted_at,'seen_at'=>null])->all();
             if ($rows) \Illuminate\Support\Facades\DB::table('subscription_notices')->insertOrIgnore($rows);
         });
     }
@@ -239,7 +249,8 @@ class StripeBillingService
         $existing=$this->request('get','/coupons/'.$id,[],null,null,true);
         if ($existing) return $existing['id'];
         return $this->request('post','/coupons',[
-            'id'=>$id,'name'=>'DekkPilot – én gratis måned','percent_off'=>100,'duration'=>'once',
+            'id'=>$id,'name'=>'DekkPilot – '.$org->stripe_free_month_count.' gratis mnd.','percent_off'=>100,'duration'=>$org->stripe_free_month_count>1?'repeating':'once',
+            ...($org->stripe_free_month_count>1?['duration_in_months'=>(int)$org->stripe_free_month_count]:[]),
             'max_redemptions'=>1,'applies_to'=>['products'=>[$price['product']]],
             'metadata'=>['organization_id'=>(string)$org->id],
         ],'dekkpilot-coupon-'.$org->stripe_free_month_key)['id'];

@@ -56,11 +56,11 @@ class SuperAdminStripeController extends Controller
 
     public function freeMonth(Request $request, Organization $organization, StripeBillingService $stripe): RedirectResponse
     {
-        $data=$request->validate(['grant_key'=>['required','uuid'],'confirm'=>['accepted']]);
+        $data=$request->validate(['grant_key'=>['required','uuid'],'months'=>['nullable','integer','min:1','max:12'],'confirm'=>['accepted']]);
         try {
-            $stripe->grantFreeMonth($organization,$data['grant_key']);
-            $this->audit($request,'stripe.free_month_granted',$organization,['grant_key'=>$data['grant_key']]);
-            return back()->with('success','Én gratis abonnementsmåned er tildelt '.$organization->name.'. Gjelder første eller neste månedsbetaling, ikke SMS.');
+            $stripe->grantFreeMonth($organization,$data['grant_key'],(int)($data['months']??1));
+            $this->audit($request,'stripe.free_month_granted',$organization,['grant_key'=>$data['grant_key'],'months'=>(int)($data['months']??1)]);
+            return back()->with('success',($data['months']??1).' gratis abonnementsmåned(er) er tildelt '.$organization->name.'. Gjelder første eller neste månedsbetaling, ikke SMS.');
         } catch (LockTimeoutException) { return back()->withErrors(['stripe'=>'En betalingsoppdatering pågår. Prøv igjen om litt.']); }
         catch (RuntimeException $e) { return back()->withErrors(['stripe'=>$e->getMessage()]); }
     }

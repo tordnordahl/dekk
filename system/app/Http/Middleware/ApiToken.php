@@ -23,6 +23,7 @@ class ApiToken
         $user = User::whereKey($token->user_id)->where('active', true)->first();
         if (!$user) return response()->json(['message' => 'Unauthenticated.'], 401);
 
+        if (!$user->is_super_admin && \App\Models\Organization::find($user->organization_id)?->suspended_at) return response()->json(['message'=>'Virksomhetens tilgang er stengt.'],403);
         auth()->setUser($user);
         $abilities = json_decode($token->abilities ?: '[]', true) ?: [];
         if ($requiredAbility && !in_array('*', $abilities, true) && !in_array($requiredAbility, $abilities, true)) {
