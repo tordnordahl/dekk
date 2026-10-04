@@ -1,7 +1,5 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    # Preserve front-controller routes, including CSS/JS delivered by Laravel.
-    RewriteRule ^index\.php(?:/|$) - [END]
     RewriteRule ^public/(.*)$ - [F,L]
     # When the system directory is the document root, serve every public
     # front-end asset from the single canonical copy in public/. END prevents
