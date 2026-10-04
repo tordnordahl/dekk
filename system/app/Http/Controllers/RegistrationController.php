@@ -42,6 +42,7 @@ class RegistrationController extends Controller
 
     public function store(Request $request, BrregService $brreg, DefaultServiceCatalog $defaultServices): RedirectResponse
     {
+        if (is_string($request->input('email'))) $request->merge(['email'=>strtolower(trim($request->input('email')))]);
         $data = $request->validate([
             'organization_number' => ['required', 'string', 'max:20'],
             'name' => ['required', 'string', 'max:255'],
@@ -50,7 +51,7 @@ class RegistrationController extends Controller
             'eula' => ['accepted'],
             'privacy' => ['accepted'],
             'price_terms' => ['accepted'],
-        ]);
+        ], ['email.unique'=>'E-postadressen er allerede registrert. Logg inn med eksisterende konto, eller bruk en annen e-postadresse for en ny virksomhet.']);
 
         try {
             $verified = $brreg->lookup($data['organization_number']);

@@ -63,6 +63,23 @@ class SaasSubscriptionTest extends TestCase
         $this->postJson('/webhooks/stripe')->assertStatus(400);
     }
 
+    public function test_duplicate_email_has_norwegian_message_and_keeps_account_unchanged(): void
+    {
+        $org=Organization::create(['public_id'=>\Illuminate\Support\Str::uuid(),'name'=>'Eksisterende AS']);
+        $user=\App\Models\User::factory()->create(['organization_id'=>$org->id,'email'=>'eier@nytt.no']);
+        Http::preventStrayRequests();
+        $this->from('/registrer')->post('/registrer',array_replace($this->registrationData(),['email'=>'EIER@NYTT.NO']))
+            ->assertRedirect('/registrer')->assertSessionHasErrors(['email'=>'E-postadressen er allerede registrert. Logg inn med eksisterende konto, eller bruk en annen e-postadresse for en ny virksomhet.']);
+        $this->get('/registrer')->assertOk()->assertSee('E-postadressen er allerede registrert')->assertSee('Glemt passord?')->assertDontSee('validation.unique')->assertSee('aria-invalid="true"',false);
+        $this->assertDatabaseCount('organizations',1);$this->assertDatabaseCount('users',1);
+        $this->assertSame($org->id,$user->fresh()->organization_id);
+    }
+    public function test_registration_validation_is_in_norwegian(): void
+    {
+        $this->from('/registrer')->post('/registrer',array_replace($this->registrationData(),['password'=>'short','password_confirmation'=>'different','eula'=>0]))->assertSessionHasErrors(['password','eula']);
+        $this->get('/registrer')->assertSee('Du må godta bruksvilkårene.')->assertDontSee('validation.');
+    }
+
     private function registrationData(): array
     {
         return ['organization_number' => '999999999', 'name' => 'Ny Eier', 'email' => 'eier@nytt.no', 'password' => 'EtVeldigSterkt123', 'password_confirmation' => 'EtVeldigSterkt123', 'eula' => 1, 'privacy' => 1, 'price_terms' => 1];
