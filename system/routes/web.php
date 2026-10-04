@@ -42,6 +42,14 @@ Route::get('/api/systemressurs/{filename}', [\App\Http\Controllers\AssetControll
     ->where('filename', '[A-Za-z0-9._-]+\.(?:css|js)')
     ->name('system.asset.compat');
 
+Route::post('/webhooks/stripe', \App\Http\Controllers\StripeWebhookController::class)->name('webhooks.stripe');
+Route::middleware(['auth','2fa','superadmin'])->group(function () {
+    Route::get('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'index'])->name('superadmin.stripe');
+    Route::put('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'save'])->middleware('throttle:5,1')->name('superadmin.stripe.save');
+    Route::post('/superadmin/{organization}/gratis-maned', [\App\Http\Controllers\SuperAdminStripeController::class, 'freeMonth'])->middleware('throttle:10,1')->name('superadmin.stripe.free-month');
+    Route::post('/superadmin/{organization}/stripe-status', [\App\Http\Controllers\SuperAdminStripeController::class, 'refresh'])->middleware('throttle:10,1')->name('superadmin.stripe.refresh');
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'form'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
@@ -87,7 +95,7 @@ Route::middleware(['auth','2fa','superadmin'])->group(function(){
     Route::delete('/superadmin/diagnose/logg',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'clear'])->middleware('throttle:3,10')->name('superadmin.diagnostics.clear');
 });
 
-Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tenant.rbac'])->group(function () {
+Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tenant.rbac',\App\Http\Middleware\ShowSubscriptionNotices::class])->group(function () {
     Route::get('/', [OperationsController::class, 'dashboard'])->name('dashboard');
     Route::view('/hjelp', 'help.index')->name('help');
     Route::get('/krever-handling', [ActionCenterController::class, 'index'])->name('actions');
@@ -99,6 +107,12 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::patch('/min-arbeidsdag/mottak/{tireSet}', [WorkdayController::class, 'intakeStep'])->name('workday.intake-step');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/abonnement', [BillingController::class, 'index'])->name('billing');
+    Route::middleware('role:owner,admin')->group(function () {
+        Route::post('/abonnement/checkout', [BillingController::class, 'checkout'])->middleware('throttle:10,1')->name('billing.checkout');
+        Route::post('/abonnement/portal', [BillingController::class, 'portal'])->middleware('throttle:10,1')->name('billing.portal');
+        Route::get('/abonnement/ferdig', [BillingController::class, 'success'])->middleware('throttle:20,1')->name('billing.success');
+        Route::post('/abonnement/oppdater', [BillingController::class, 'refresh'])->middleware('throttle:10,1')->name('billing.refresh');
+    });
     Route::get('/kunder', [OperationsController::class, 'customers'])->name('customers');
     Route::get('/postnummer/{postalCode}', [OperationsController::class, 'postalCode'])->where('postalCode', '\\d{4}')->middleware('throttle:120,1')->name('postal-code.lookup');
     Route::get('/nummeropplysning', [\App\Http\Controllers\PhoneDirectoryController::class, 'lookup'])->middleware('throttle:20,1')->name('phone-directory.lookup');

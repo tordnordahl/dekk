@@ -22,7 +22,7 @@ use RuntimeException;
 
 class RegistrationController extends Controller
 {
-    private const LEGAL_VERSION = '2026-08-09';
+    private const LEGAL_VERSION = '2026-10-04';
 
     public function form(): View
     {
@@ -47,7 +47,6 @@ class RegistrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()],
-            'promo_code' => ['nullable', 'string', 'max:40'],
             'eula' => ['accepted'],
             'privacy' => ['accepted'],
             'price_terms' => ['accepted'],
@@ -63,13 +62,7 @@ class RegistrationController extends Controller
             throw ValidationException::withMessages(['organization_number' => 'Virksomheten har allerede en konto. Logg inn eller kontakt oss.']);
         }
 
-        $promo = strtoupper(trim((string) ($data['promo_code'] ?? '')));
-        $currentPromo = 'GRATIS'.now('Europe/Oslo')->format('my');
-        if ($promo !== '' && ! hash_equals($currentPromo, $promo)) {
-            throw ValidationException::withMessages(['promo_code' => 'Rabattkoden er ugyldig eller har utløpt.']);
-        }
-
-        $user = DB::transaction(function () use ($data, $verified, $promo, $request, $defaultServices) {
+        $user = DB::transaction(function () use ($data, $verified, $request, $defaultServices) {
             $organization = Organization::create([
                 'public_id' => (string) Str::uuid(),
                 'name' => $verified['name'],
@@ -77,13 +70,10 @@ class RegistrationController extends Controller
                 'email' => strtolower($data['email']),
                 'timezone' => 'Europe/Oslo',
                 'locale' => 'nb',
-                'subscription_status' => 'active',
+                'subscription_status' => 'incomplete',
                 'brreg_verified_at' => now(),
                 'brreg_data' => $verified,
-                'billing_model' => 'invoice',
-                'billing_discount_percent' => $promo !== '' ? 100 : 0,
-                'billing_discount_code' => $promo !== '' ? $promo : null,
-                'billing_discount_ends_at' => $promo !== '' ? now('Europe/Oslo')->endOfMonth()->toDateString() : null,
+                'billing_model' => 'stripe',
             ]);
             $branch = Branch::create(['public_id' => (string) Str::uuid(), 'organization_id' => $organization->id, 'name' => 'Hovedavdeling', 'code' => 'HOVED', 'active' => true]);
             $user = User::create(['organization_id' => $organization->id, 'branch_id' => $branch->id, 'name' => $data['name'], 'email' => strtolower($data['email']), 'password' => $data['password'], 'role' => 'owner', 'active' => true]);
@@ -104,6 +94,6 @@ class RegistrationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('success', 'Virksomheten er kontrollert og DekkPilot er klart til bruk. Velkommen!');
+        return redirect()->route('billing')->with('success', 'Kontoen er opprettet. Aktiver abonnementet hos Stripe for å åpne DekkPilot.');
     }
 }

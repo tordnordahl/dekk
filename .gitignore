@@ -1,0 +1,2 @@
+# Lokale SSH-innstillinger skal aldri legges i Git.
+/.env.ssh

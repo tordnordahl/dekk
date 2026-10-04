@@ -13,15 +13,16 @@ class SaasSubscriptionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_verifies_brreg_accepts_terms_and_opens_system_immediately(): void
+    public function test_registration_verifies_brreg_accepts_terms_and_requires_stripe(): void
     {
         $this->fakeBrreg('999999999', 'Offisielt Dekkhotell AS');
 
-        $this->post('/registrer', $this->registrationData())->assertRedirect('/');
+        $this->post('/registrer', $this->registrationData())->assertRedirect('/abonnement');
 
         $organization = Organization::where('organization_number', '999999999')->firstOrFail();
         $this->assertSame('Offisielt Dekkhotell AS', $organization->name);
-        $this->assertSame('active', $organization->subscription_status);
+        $this->assertSame('incomplete', $organization->subscription_status);
+        $this->assertSame('stripe', $organization->billing_model);
         $this->assertNotNull($organization->brreg_verified_at);
         $this->assertDatabaseHas('users', ['organization_id' => $organization->id, 'email' => 'eier@nytt.no', 'role' => 'owner']);
         $this->assertDatabaseCount('legal_acceptances', 3);
@@ -30,7 +31,7 @@ class SaasSubscriptionTest extends TestCase
         $this->assertDatabaseHas('service_products',['organization_id'=>$organization->id,'code'=>'SKIFT','name'=>'Sesongskift','duration_minutes'=>40]);
         $this->assertDatabaseHas('service_products',['organization_id'=>$organization->id,'code'=>'HOTELL','name'=>'Dekkhotell']);
         $this->assertTrue(ServiceSetting::where('organization_id',$organization->id)->whereNotNull('branch_id')->exists());
-        $this->get('/kunder')->assertOk();
+        $this->get('/kunder')->assertRedirect('/abonnement');
     }
 
     public function test_unknown_organization_is_rejected(): void
@@ -41,24 +42,12 @@ class SaasSubscriptionTest extends TestCase
         $this->assertDatabaseCount('organizations', 0);
     }
 
-    public function test_current_month_free_code_is_applied_and_old_code_is_rejected(): void
+    public function test_old_public_promo_code_does_not_bypass_payment(): void
     {
-        $this->travelTo(now()->setDate(2026, 8, 9));
         $this->fakeBrreg('999999999', 'Rabatt AS');
-        $data = $this->registrationData() + ['promo_code' => 'GRATIS0826'];
-
-        $this->post('/registrer', $data)->assertRedirect('/');
-        $organization = Organization::firstOrFail();
-        $this->assertSame(100, $organization->billing_discount_percent);
-        $this->assertSame('2026-08-31', $organization->billing_discount_ends_at->toDateString());
-
-        auth()->logout();
-        $this->fakeBrreg('888888888', 'Gammel kode AS');
-        $data = $this->registrationData();
-        $data['organization_number'] = '888888888';
-        $data['email'] = 'annen@example.no';
-        $data['promo_code'] = 'GRATIS0726';
-        $this->post('/registrer', $data)->assertSessionHasErrors('promo_code');
+        $this->post('/registrer', $this->registrationData() + ['promo_code'=>'GRATIS'.now()->format('my')])->assertRedirect('/abonnement');
+        $this->assertSame('incomplete', Organization::firstOrFail()->subscription_status);
+        $this->get('/kunder')->assertRedirect('/abonnement');
     }
 
     public function test_public_lookup_returns_verified_company(): void
@@ -68,10 +57,10 @@ class SaasSubscriptionTest extends TestCase
             ->assertOk()->assertJsonPath('name', 'Oppslag AS');
     }
 
-    public function test_card_payment_and_stripe_webhook_are_not_exposed(): void
+    public function test_checkout_requires_authentication_and_webhook_requires_signature(): void
     {
-        $this->post('/abonnement/checkout')->assertNotFound();
-        $this->postJson('/webhooks/stripe')->assertNotFound();
+        $this->post('/abonnement/checkout')->assertRedirect('/login');
+        $this->postJson('/webhooks/stripe')->assertStatus(400);
     }
 
     private function registrationData(): array

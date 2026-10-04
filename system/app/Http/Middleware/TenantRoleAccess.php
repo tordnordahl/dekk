@@ -11,6 +11,7 @@ class TenantRoleAccess
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        if ($request->routeIs('billing')) return $next($request);
         if (! $user || $user->is_super_admin || ! in_array($user->role, ['technician', 'warehouse'], true)) {
             return $next($request);
         }

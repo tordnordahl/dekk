@@ -35,6 +35,7 @@ class AuthController extends Controller
         RateLimiter::clear($key);
         $request->session()->regenerate();
         $request->session()->forget('two_factor_confirmed');
+        $request->session()->put('billing_notice_login', true);
         $request->user()->forceFill(['last_login_at' => now()])->save();
         if ($request->user()->two_factor_confirmed_at) {
             $destination=$request->user()->is_super_admin===true&&!$updates->inspect()['current']?route('superadmin.system-update'):route('dashboard');

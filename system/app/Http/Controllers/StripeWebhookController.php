@@ -1,7 +1,68 @@
 <?php
-namespace App\Http\Controllers;use App\Models\Organization;use Illuminate\Http\Request;use Illuminate\Http\Response;use Illuminate\Support\Facades\DB;
+
+namespace App\Http\Controllers;
+
+use App\Models\Organization;
+use App\Services\StripeBillingService;
+use App\Services\StripeSettings;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+
 class StripeWebhookController extends Controller
 {
- public function __invoke(Request $request):Response{$payload=$request->getContent();if(!$this->valid($payload,(string)$request->header('Stripe-Signature')))return response('Ugyldig signatur',400);$event=json_decode($payload,true);if(!is_array($event)||blank($event['id']??null))return response('Ugyldig payload',400);if(DB::table('billing_webhook_events')->where('event_id',$event['id'])->exists())return response('OK');DB::transaction(function()use($event){$object=$event['data']['object']??[];$orgId=data_get($object,'metadata.organization_id')?:data_get($object,'subscription_details.metadata.organization_id');$org=$orgId?Organization::find($orgId):Organization::where('stripe_customer_id',$object['customer']??'')->first();if($org){$type=$event['type'];$status=$object['status']??null;$updates=[];if($type==='checkout.session.completed')$updates=['stripe_customer_id'=>$object['customer']??null,'stripe_subscription_id'=>$object['subscription']??null,'subscription_status'=>'active'];elseif(str_starts_with($type,'customer.subscription.'))$updates=['stripe_subscription_id'=>$object['id']??$org->stripe_subscription_id,'subscription_status'=>$status?:($type==='customer.subscription.deleted'?'canceled':$org->subscription_status),'subscription_ends_at'=>isset($object['current_period_end'])?date('Y-m-d H:i:s',$object['current_period_end']):$org->subscription_ends_at];elseif($type==='invoice.payment_failed')$updates=['subscription_status'=>'past_due'];elseif($type==='invoice.paid')$updates=['subscription_status'=>'active'];if($updates)$org->update($updates);}DB::table('billing_webhook_events')->insert(['provider'=>'stripe','event_id'=>$event['id'],'event_type'=>$event['type']??'unknown','processed_at'=>now()]);});return response('OK');}
- private function valid(string $payload,string $header):bool{$secret=(string)config('services.stripe.webhook_secret');if($secret===''||$header==='')return false;$parts=[];foreach(explode(',',$header)as$item){[$key,$value]=array_pad(explode('=',$item,2),2,null);$parts[$key][]=$value;}$timestamp=(int)($parts['t'][0]??0);if(!$timestamp||abs(time()-$timestamp)>300)return false;$expected=hash_hmac('sha256',$timestamp.'.'.$payload,$secret);foreach($parts['v1']??[]as$signature)if(hash_equals($expected,(string)$signature))return true;return false;}
+    public const EVENTS = ['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed',
+        'customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','invoice.paid','invoice.payment_failed'];
+
+    public function __invoke(Request $request, StripeBillingService $stripe, StripeSettings $settings): Response
+    {
+        $payload=$request->getContent();
+        if (!$this->valid($payload,(string)$request->header('Stripe-Signature'),(string)($settings->get()['webhook_secret']??''))) return response('Ugyldig signatur',400);
+        $event=json_decode($payload,true);
+        if (!is_array($event) || !is_string($event['id']??null) || !is_string($event['type']??null)) return response('Ugyldig payload',400);
+        if (!in_array($event['type'],self::EVENTS,true) || DB::table('billing_webhook_events')->where('event_id',$event['id'])->exists()) return response('OK');
+        $object=$event['data']['object']??[];
+        if (!is_array($object)) return response('Ugyldig payload',400);
+        // Resolve only by the customer linked server-side, never by arbitrary invoice metadata.
+        $customer=$object['customer']??null;
+        if (!is_string($customer) || $customer==='') return response('OK');
+        $org=Organization::where('stripe_customer_id',$customer)->first();
+        if (!$org) return response('OK');
+        try {
+            $stripe->locked($org,function(Organization $org) use ($stripe,$event,$object) {
+                if (DB::table('billing_webhook_events')->where('event_id',$event['id'])->exists()) return;
+                DB::transaction(function () use ($stripe,$org,$event,$object) {
+                    if (str_starts_with($event['type'],'checkout.session.')) {
+                        if (($object['id']??null)===$org->stripe_checkout_session_id) $stripe->syncSession($org,$stripe->retrieveSession($object['id']));
+                    } else {
+                        $id=str_starts_with($event['type'],'customer.subscription.') ? ($object['id']??null)
+                            : ($object['subscription']??data_get($object,'parent.subscription_details.subscription'));
+                        // Old invoices/cancellations must never resurrect or cancel a replacement subscription.
+                        if (is_string($id) && ($id===$org->stripe_subscription_id
+                            || (!$org->stripe_subscription_id && (string)data_get($object,'metadata.organization_id')===(string)$org->id))) {
+                            $stripe->syncSubscription($org,$id);
+                        }
+                    }
+                    DB::table('billing_webhook_events')->insertOrIgnore(['provider'=>'stripe','event_id'=>$event['id'],'event_type'=>$event['type'],'processed_at'=>now()]);
+                });
+            });
+        } catch (\Throwable $e) {
+            // Stripe retries failures. Do not log API responses, signatures or customer data.
+            \Illuminate\Support\Facades\Log::warning('Stripe webhook retry required',['event_id'=>$event['id'],'exception'=>get_class($e)]);
+            return response('Prøv igjen',503);
+        }
+        return response('OK');
+    }
+
+    private function valid(string $payload,string $header,string $secret): bool
+    {
+        if ($secret==='' || $header==='') return false;
+        $parts=[];
+        foreach(explode(',',$header) as $item) { [$key,$value]=array_pad(explode('=',trim($item),2),2,null); $parts[$key][]=$value; }
+        $timestamp=(int)($parts['t'][0]??0);
+        if (!$timestamp || abs(time()-$timestamp)>300) return false;
+        $expected=hash_hmac('sha256',$timestamp.'.'.$payload,$secret);
+        foreach($parts['v1']??[] as $signature) if(hash_equals($expected,(string)$signature)) return true;
+        return false;
+    }
 }

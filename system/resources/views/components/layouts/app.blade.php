@@ -56,6 +56,7 @@
             <div class="profile-menu-popover" role="menu">
                 <div class="profile-menu-heading"><small>INNLOGGET SOM</small><strong>{{ auth()->user()->email }}</strong></div>
                 <a href="{{ route('ui-mode.choose') }}" role="menuitem"><span><x-icon name="home" size="18"/></span><span><strong>Bytt visning</strong><small>Portal eller teknikermodus</small></span></a>
+                <a href="{{ route('billing') }}" role="menuitem"><span><x-icon name="settings" size="18"/></span><span><strong>Abonnement</strong><small>Betaling og Stripe</small></span></a>
                 <a href="{{ route('help') }}" role="menuitem"><span class="profile-menu-symbol">?</span><span><strong>Hjelp</strong><small>Åpne brukerhåndboken</small></span></a>
                 @if(auth()->user()->is_super_admin)<a class="super" href="{{ route('superadmin') }}" role="menuitem"><span><x-icon name="star" size="18"/></span><span><strong>Superadmin</strong><small>Se alle SaaS-kunder</small></span></a>@endif
                 @if(auth()->user()->is_super_admin || in_array(auth()->user()->role,['owner','admin'],true))<a href="{{ route('admin') }}" role="menuitem"><span><x-icon name="settings" size="18"/></span><span><strong>Administrasjon</strong><small>Oppsett og integrasjoner</small></span></a>@endif
@@ -70,6 +71,12 @@
         @if(session('success'))<div class="flash">✓ {{ session('success') }}</div>@endif
         @if(session('warning'))<div class="warning-flash">! {{ session('warning') }}</div>@endif
         @if($errors->any())<div class="errors"><strong>Noe må rettes:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+        @if(request()->attributes->has('subscription_notices'))
+            @php(request()->attributes->set('subscription_notices_rendered', true))
+            @foreach(request()->attributes->get('subscription_notices') as $notice)
+                <div class="flash" role="status"><strong>Du har fått én gratis måned med DekkPilot!</strong> Tildelt {{ \Carbon\Carbon::parse($notice->granted_at)->format('d.m.Y') }}. Rabatten gjelder første eller neste abonnementsmåned. SMS er ikke inkludert. <a href="{{ route('billing') }}">Se abonnementet</a></div>
+            @endforeach
+        @endif
         {{ $slot }}
     </main>
 </div>
