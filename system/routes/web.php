@@ -42,6 +42,7 @@ Route::get('/api/systemressurs/{filename}', [\App\Http\Controllers\AssetControll
     ->where('filename', '[A-Za-z0-9._-]+\.(?:css|js)')
     ->name('system.asset.compat');
 
+Route::post('/webhooks/stripe/verksted/{organization:public_id}', \App\Http\Controllers\MerchantStripeWebhookController::class)->name('merchant.stripe.webhook');
 Route::post('/webhooks/stripe', \App\Http\Controllers\StripeWebhookController::class)->name('webhooks.stripe');
 Route::middleware(['auth','2fa','superadmin'])->group(function () {
     Route::get('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'index'])->name('superadmin.stripe');
@@ -74,6 +75,8 @@ Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}',[CheckoutPortalController::class,'status'])->name('checkout.status');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vis',[CheckoutPortalController::class,'showPayment'])->middleware('throttle:60,1')->name('checkout.payment');
 Route::post('/utsjekk/betaling/{payment:public_id}/{token}/start',[CheckoutPortalController::class,'start'])->middleware('throttle:15,1')->name('checkout.start');
+Route::get('/utsjekk/betaling/{payment:public_id}/{token}/stripe-retur',[CheckoutPortalController::class,'stripeReturn'])->middleware('throttle:20,1')->name('checkout.stripe.return');
+Route::post('/utsjekk/betaling/{payment:public_id}/{token}/stripe-avbryt',[CheckoutPortalController::class,'stripeCancel'])->middleware('throttle:10,1')->name('checkout.stripe.cancel');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}/vipps-retur',[CheckoutPortalController::class,'vippsReturn'])->middleware('throttle:60,1')->name('checkout.vipps.return');
 Route::get('/utsjekk/betaling/{payment:public_id}/{token}/kvittering',[CheckoutPortalController::class,'receipt'])->middleware('throttle:60,1')->name('checkout.receipt');
 Route::middleware('auth')->group(function () {
@@ -106,6 +109,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::patch('/min-arbeidsdag/hjulsett/{tireSet}', [WorkdayController::class, 'move'])->name('workday.move');
     Route::patch('/min-arbeidsdag/mottak/{tireSet}', [WorkdayController::class, 'intakeStep'])->name('workday.intake-step');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/betalinger/{payment:public_id}/zettle-avbryt', [\App\Http\Controllers\MerchantPaymentsController::class, 'cancelZettle'])->middleware('role:owner,admin,manager,customer_service')->name('payments.zettle.cancel');
+    Route::post('/betalinger/{payment:public_id}/zettle-bekreft', [\App\Http\Controllers\MerchantPaymentsController::class, 'confirmZettle'])->middleware('role:owner,admin,manager,customer_service')->name('payments.zettle.confirm');
     Route::get('/abonnement', [BillingController::class, 'index'])->name('billing');
     Route::middleware('role:owner,admin')->group(function () {
         Route::post('/abonnement/checkout', [BillingController::class, 'checkout'])->middleware('throttle:10,1')->name('billing.checkout');
@@ -185,6 +190,9 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
         Route::post('/lageroppsett/plasser', [WarehouseController::class, 'store'])->name('admin.warehouse.store');
         Route::put('/lageroppsett/plasser/{location}', [WarehouseController::class, 'update'])->name('admin.warehouse.update');
         Route::patch('/lageroppsett/plasser/{location}/status', [WarehouseController::class, 'toggle'])->name('admin.warehouse.toggle');
+        Route::get('/betalinger', [\App\Http\Controllers\MerchantPaymentsController::class, 'index'])->name('admin.payments');
+        Route::put('/betalinger/stripe', [\App\Http\Controllers\MerchantPaymentsController::class, 'stripe'])->middleware('throttle:5,1')->name('admin.payments.stripe');
+        Route::put('/betalinger/zettle', [\App\Http\Controllers\MerchantPaymentsController::class, 'zettle'])->name('admin.payments.zettle');
         Route::get('/regnskap', [AccountingController::class, 'index'])->name('admin.accounting');
         Route::match(['get','post'], '/regnskap/fiken/koble-til', [AccountingController::class, 'connectFiken'])->name('admin.accounting.fiken.connect');
         Route::get('/regnskap/fiken/callback', [AccountingController::class, 'fikenCallback'])->name('admin.accounting.fiken.callback');

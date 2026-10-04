@@ -51,7 +51,7 @@ class AccountingController extends Controller
     {
         $data=$request->validate(['client_id'=>['nullable','string','max:500'],'client_secret'=>['nullable','string','max:2000'],'subscription_key'=>['nullable','string','max:500'],'msn'=>['nullable','regex:/^[0-9]{4,10}$/'],'test'=>['nullable','boolean'],'active'=>['nullable','boolean']]);
         $org=$request->user()->organization_id;$existing=IntegrationSetting::where('organization_id',$org)->where('provider','payment_vipps')->first();$old=$existing?json_decode(Crypt::decryptString($existing->encrypted_credentials),true):[];
-        $credentials=['client_id'=>$data['client_id']?:($old['client_id']??null),'client_secret'=>$data['client_secret']?:($old['client_secret']??null),'subscription_key'=>$data['subscription_key']?:($old['subscription_key']??null),'msn'=>$data['msn']?:($old['msn']??null),'test'=>$request->boolean('test')];
+        $credentials=['client_id'=>($data['client_id']??null)?:($old['client_id']??null),'client_secret'=>($data['client_secret']??null)?:($old['client_secret']??null),'subscription_key'=>($data['subscription_key']??null)?:($old['subscription_key']??null),'msn'=>($data['msn']??null)?:($old['msn']??null),'test'=>$request->boolean('test')];
         if($request->boolean('active')&&collect(['client_id','client_secret','subscription_key','msn'])->contains(fn($key)=>blank($credentials[$key])))return back()->withErrors(['payment'=>'Alle fire Vipps-opplysningene må fylles ut før Vipps aktiveres.']);
         IntegrationSetting::updateOrCreate(['organization_id'=>$org,'provider'=>'payment_vipps'],['encrypted_credentials'=>Crypt::encryptString(json_encode($credentials,JSON_THROW_ON_ERROR)),'active'=>$request->boolean('active'),'updated_by'=>$request->user()->id]);
         return back()->with('success','Vipps-oppsettet er lagret kryptert'.($request->boolean('active')?' og aktivert.':'.'));
@@ -78,7 +78,7 @@ class AccountingController extends Controller
         $old=$platform->fiken();
         if(blank($data['client_secret'])&&blank($old['client_secret']??null))return back()->withErrors(['client_secret'=>'Client Secret må fylles ut første gang.']);
         try {
-            $platform->save('accounting.fiken.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>$data['client_secret']?:$old['client_secret']],$request->user()->id);
+            $platform->save('accounting.fiken.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>($data['client_secret']??null)?:$old['client_secret']],$request->user()->id);
         } catch (Throwable $exception) {
             report($exception);
             return back()->withErrors(['accounting'=>$exception->getMessage()]);
@@ -115,7 +115,7 @@ class AccountingController extends Controller
         $data=$request->validate(['app_key'=>['nullable','string','max:2000'],'subscription_key'=>['nullable','string','max:2000']]);$old=$platform->poweroffice();
         if(blank($data['app_key'])&&blank($old['app_key']??null))return back()->withErrors(['accounting'=>'PowerOffice App Key må fylles ut første gang.']);
         if(blank($data['subscription_key'])&&blank($old['subscription_key']??null))return back()->withErrors(['accounting'=>'PowerOffice Subscription Key må fylles ut første gang.']);
-        $platform->save('accounting.poweroffice',['app_key'=>$data['app_key']?:$old['app_key'],'subscription_key'=>$data['subscription_key']?:$old['subscription_key']],$request->user()->id);
+        $platform->save('accounting.poweroffice',['app_key'=>$data['app_key']?:$old['app_key'],'subscription_key'=>($data['subscription_key']??null)?:$old['subscription_key']],$request->user()->id);
         return back()->with('success','PowerOffice-plattformnøklene er lagret kryptert.');
     }
 
@@ -123,7 +123,7 @@ class AccountingController extends Controller
     {
         $data=$request->validate(['client_id'=>['required','string','max:500'],'client_secret'=>['nullable','string','max:2000'],'pilot_enabled'=>['nullable','boolean']]);$old=$platform->zettle();
         if(blank($data['client_secret'])&&blank($old['client_secret']??null))return back()->withErrors(['accounting'=>'Zettle Client Secret må fylles ut første gang.']);
-        $platform->save('sales.zettle.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>$data['client_secret']?:$old['client_secret'],'pilot_enabled'=>$request->boolean('pilot_enabled')],$request->user()->id);
+        $platform->save('sales.zettle.oauth',['client_id'=>trim($data['client_id']),'client_secret'=>($data['client_secret']??null)?:$old['client_secret'],'pilot_enabled'=>$request->boolean('pilot_enabled')],$request->user()->id);
         return back()->with('success','Zettle-plattformoppsettet er lagret kryptert. Pilotstatus er '.($request->boolean('pilot_enabled')?'aktiv':'av').'.');
     }
 

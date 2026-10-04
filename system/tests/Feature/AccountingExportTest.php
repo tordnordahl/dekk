@@ -137,6 +137,7 @@ class AccountingExportTest extends TestCase
         ['user'=>$user,'booking'=>$booking]=$this->setupBooking();
         $this->actingAs($user)->post(route('bookings.complete',$booking));
         $payment=CheckoutPayment::where('booking_id',$booking->id)->firstOrFail();
+        app(\App\Services\MerchantPaymentSettings::class)->save($user->organization_id,'terminal',['name'=>'Testterminal'],true,$user->id);
         $plain='terminal-test-token';$payment->update(['lookup_token_hash'=>hash('sha256',$plain)]);
 
         $this->assertFalse(\Illuminate\Support\Facades\Route::has('checkout.complete'));

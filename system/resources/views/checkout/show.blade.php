@@ -9,7 +9,7 @@
 <main class="checkout-shell">
  <section class="checkout-brand-panel" aria-label="Informasjon om utsjekking">
   <header class="checkout-brand"><span class="checkout-mark">D</span><span><strong>{{ $organization->name }}</strong><small>Drevet av DekkPilot</small></span></header>
-  <div class="checkout-brand-copy"><p class="checkout-kicker">SELBETJENT UTSJEKKING</p><h1>Ferdig på<br><em>et øyeblikk.</em></h1><p>{{ $pilotEnabled ? 'Finn den ferdige jobben, kontroller beløpet og betal i kundemottaket.' : 'Betalingspiloten er ikke aktivert. Verkstedet hjelper deg i kundemottaket.' }}</p></div>
+  <div class="checkout-brand-copy"><p class="checkout-kicker">SELBETJENT UTSJEKKING</p><h1>Ferdig på<br><em>et øyeblikk.</em></h1><p>{{ $pilotEnabled ? 'Finn den ferdige jobben, kontroller beløpet og betal i kundemottaket.' : 'Verkstedet har ikke aktivert kundebetaling. Verkstedet hjelper deg i kundemottaket.' }}</p></div>
   <ol class="checkout-steps"><li class="active"><b>1</b><span><strong>Finn bilen</strong><small>Skriv registreringsnummer</small></span></li><li><b>2</b><span><strong>Kontroller jobben</strong><small>Se tjeneste og beløp</small></span></li><li><b>3</b><span><strong>Betal og hent</strong><small>Bekreft på terminalen</small></span></li></ol>
   <footer><span class="shield-icon">✓</span><span><strong>Personvern først</strong><small>Ingen navn eller kontaktopplysninger vises.</small></span></footer>
  </section>

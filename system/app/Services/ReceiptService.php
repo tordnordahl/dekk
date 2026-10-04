@@ -77,7 +77,7 @@ class ReceiptService
             'booking_reference' => $booking?->reference,
             'registration_number' => $booking?->vehicle?->registration_number,
             'payment_method' => match ($payment->payment_method) {
-                'vipps' => 'Vipps', 'cash' => 'Kontant', 'terminal' => 'Bankterminal', default => ucfirst((string) $payment->payment_method),
+                'vipps' => 'Vipps', 'cash' => 'Kontant', 'terminal' => 'Bankterminal', 'stripe'=>'Stripe', 'zettle'=>'Zettle / PayPal Point of Sale', default => ucfirst((string) $payment->payment_method),
             },
             'transaction_reference' => $payment->provider_reference ?: $payment->terminal_reference,
             'currency' => $payment->currency ?: 'NOK',

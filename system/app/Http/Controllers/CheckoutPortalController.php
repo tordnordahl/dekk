@@ -13,6 +13,8 @@ use App\Services\CheckoutPaymentService;
 use App\Services\ReceiptService;
 use App\Services\Accounting\AccountingExportService;
 use App\Services\VippsPaymentService;
+use App\Services\MerchantStripeService;
+use App\Services\MerchantPaymentSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,8 +27,7 @@ class CheckoutPortalController extends Controller
 {
     private function enabled(?int $organizationId = null): bool
     {
-        return (bool) (app(AccountingPlatformSettings::class)->zettle()['pilot_enabled'] ?? false)
-            || IntegrationSetting::where('organization_id', $organizationId)->whereIn('provider', ['payment_terminal', 'payment_vipps'])->where('active', true)->exists();
+        return IntegrationSetting::where('organization_id', $organizationId)->whereIn('provider', ['payment_terminal', 'payment_vipps', 'payment_stripe', 'payment_zettle'])->where('active', true)->exists();
     }
 
     public function show(Organization $organization): View
@@ -67,20 +68,36 @@ class CheckoutPortalController extends Controller
     public function start(Request $request, CheckoutPayment $payment, string $token, VippsPaymentService $vipps, CheckoutPaymentService $payments, AccountingExportService $accounting): RedirectResponse
     {
         $this->validToken($payment, $token);
+        try {
+            return app(MerchantStripeService::class)->locked($payment,fn($locked)=>$this->startLocked($request,$locked,$token,$vipps,$payments,$accounting));
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException) { return back()->withErrors(['payment'=>'Betalingen oppdateres. Prøv igjen om litt.']); }
+        catch (\RuntimeException $e) { return back()->withErrors(['payment'=>$e->getMessage()]); }
+    }
+
+    private function startLocked(Request $request, CheckoutPayment $payment, string $token, VippsPaymentService $vipps, CheckoutPaymentService $payments, AccountingExportService $accounting): RedirectResponse
+    {
+        if ($payment->status==='paid') return redirect()->route('checkout.receipt',[$payment,$token]);
+        if ($payment->invoiced_at || $payment->status==='expired' || $payment->invoiceExport->status==='exported' || ($payment->expires_at->isPast() && !$payment->stripe_checkout_key)) return back()->withErrors(['payment'=>'Betalingen er utløpt eller allerede fakturert. Kontakt verkstedet.']);
         $customer = $payment->booking()->with('customer')->first()?->customer;
         $data = $request->validate([
-            'payment_method' => ['required', 'in:terminal,vipps,cash,invoice'], 'receipt_channel' => ['nullable', 'in:email,sms,print'],
+            'payment_method' => ['required', 'in:terminal,vipps,stripe,zettle,cash,invoice'], 'receipt_channel' => ['nullable', 'in:email,sms,print'],
             'receipt_recipient' => ['nullable', 'string', 'max:255'],
         ]);
+        if ($payment->stripe_checkout_key && $data['payment_method']!=='stripe') return back()->withErrors(['payment'=>'Avklar eller avbryt Stripe-betalingen før du velger en annen betalingsmåte.']);
+        if ($payment->status==='processing' && $payment->payment_method!=='stripe') return back()->withErrors(['payment'=>'En betaling pågår allerede. Avklar status før du starter på nytt.']);
+        if (in_array($data['payment_method'],['terminal','vipps','stripe','zettle'],true)
+            && !(app(MerchantPaymentSettings::class)->get($payment->organization_id,$data['payment_method'])['active']??false)) {
+            return back()->withErrors(['payment'=>'Denne betalingsmåten er ikke aktivert av verkstedet.']);
+        }
         if (in_array($data['payment_method'], ['cash','invoice'], true)) {
             abort_unless($request->user() && $request->user()->organization_id === $payment->organization_id, 403);
         }
         if ($data['payment_method'] !== 'invoice' && empty($data['receipt_channel'])) return back()->withErrors(['receipt_channel'=>'Velg hvordan kunden skal få kvitteringen.']);
         $recipient = trim((string) ($data['receipt_recipient'] ?? ''));
-        if ($data['receipt_channel'] === 'email') {
+        if (($data['receipt_channel']??null) === 'email') {
             $recipient = $recipient ?: (string) $customer?->email;
             if (! filter_var($recipient, FILTER_VALIDATE_EMAIL)) return back()->withErrors(['receipt_recipient' => 'Skriv inn en gyldig e-postadresse.']);
-        } elseif ($data['receipt_channel'] === 'sms') {
+        } elseif (($data['receipt_channel']??null) === 'sms') {
             $recipient = preg_replace('/[^0-9+]/', '', $recipient ?: (string) $customer?->phone);
             if (! preg_match('/^(?:\+47)?[49]\d{7}$/', $recipient)) return back()->withErrors(['receipt_recipient' => 'Skriv inn et gyldig norsk mobilnummer.']);
         } else $recipient = '';
@@ -99,6 +116,13 @@ class CheckoutPortalController extends Controller
             $payment->update(['status'=>'expired','payment_method'=>'invoice','provider'=>'accounting','provider_status'=>'INVOICED','invoiced_at'=>now()]);
             return redirect()->route('checkout.payment',[$payment,$token])->with('success','Fakturaen er sendt til regnskapssystemet.');
         }
+        if ($data['payment_method'] === 'stripe') {
+            return redirect()->away(app(MerchantStripeService::class)->create($payment,$token));
+        }
+        if ($data['payment_method'] === 'zettle') {
+            $payment->update(['provider'=>'zettle','status'=>'processing','provider_status'=>'WAITING_FOR_STAFF']);
+            return back()->with('success','Betal med Zettle i kassen. En ansatt kontrollerer kvitteringen og registrerer betalingen.');
+        }
         if ($data['payment_method'] === 'terminal') {
             $payment->update(['provider' => 'terminal', 'provider_status' => 'WAITING_FOR_CARD', 'provider_payload'=>['attempt_expires_at'=>now()->addSeconds(60)->toIso8601String()], 'status' => 'processing']);
             return back()->with('success', 'Beløpet er klart. Følg instruksjonene på bankterminalen.');
@@ -110,6 +134,22 @@ class CheckoutPortalController extends Controller
             $payment->update(['status' => 'failed', 'last_error' => $exception->getMessage()]);
             return back()->withErrors(['payment' => $exception->getMessage()]);
         }
+    }
+
+    public function stripeReturn(CheckoutPayment $payment,string $token,MerchantStripeService $stripe): RedirectResponse
+    {
+        $this->validToken($payment,$token);
+        try { $payment=$stripe->locked($payment,fn($p)=>$stripe->synchronize($p)); }
+        catch (\Throwable) { return redirect()->route('checkout.payment',[$payment,$token])->withErrors(['payment'=>'Betalingen er ikke bekreftet ennå. Vent og kontroller status før du betaler igjen.']); }
+        return redirect()->route($payment->status==='paid'?'checkout.receipt':'checkout.payment',[$payment,$token]);
+    }
+
+    public function stripeCancel(CheckoutPayment $payment,string $token,MerchantStripeService $stripe): RedirectResponse
+    {
+        $this->validToken($payment,$token);
+        try { $stripe->locked($payment,fn($p)=>$stripe->cancel($p)); }
+        catch (\RuntimeException $e) { return back()->withErrors(['payment'=>$e->getMessage()]); }
+        return redirect()->route('checkout.payment',[$payment,$token]);
     }
 
     public function vippsReturn(CheckoutPayment $payment, string $token, VippsPaymentService $vipps): RedirectResponse
@@ -165,6 +205,8 @@ class CheckoutPortalController extends Controller
         return view('checkout.payment', compact('organization', 'vehicle', 'booking', 'invoice', 'payment', 'plain') + [
             'terminalEnabled' => (bool) $terminal, 'terminalName' => $terminalConfig['name'] ?? 'Bankterminal',
             'vippsEnabled' => app(VippsPaymentService::class)->configured($organization->id),
+            'stripeEnabled' => (bool)(app(MerchantPaymentSettings::class)->get($organization->id,'stripe')['active']??false),
+            'zettleEnabled' => (bool)(app(MerchantPaymentSettings::class)->get($organization->id,'zettle')['active']??false),
         ]);
     }
 
