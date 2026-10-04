@@ -6,6 +6,13 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AssetController extends Controller
 {
+    public function query(\Illuminate\Http\Request $request): BinaryFileResponse
+    {
+        $filename=$request->query('filename');
+        abort_unless(is_string($filename),404);
+        return $this->show($filename);
+    }
+
     public function show(string $filename): BinaryFileResponse
     {
         abort_unless((bool) preg_match('/\A[a-z0-9][a-z0-9._-]*\.(css|js)\z/i', $filename), 404);

@@ -35,6 +35,7 @@ use App\Http\Controllers\SeasonRecallController;
 
 // Lever nye CSS/JS-filer gjennom den vanlige frontcontrolleren. Enkelte delte
 // webhotell sender ikke /api/* videre til Laravel, men /index.php/* fungerer.
+Route::get('/systemressurs', [\App\Http\Controllers\AssetController::class, 'query'])->name('system.asset.query');
 Route::get('/systemressurs/{filename}', [\App\Http\Controllers\AssetController::class, 'show'])
     ->where('filename', '[A-Za-z0-9._-]+\.(?:css|js)')
     ->name('system.asset');
