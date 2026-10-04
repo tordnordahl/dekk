@@ -1,5 +1,23 @@
-<x-layouts.app title="Abonnement · DekkPilot" heading="Abonnement">
+@php($billingBlocked = !auth()->user()->is_super_admin && !$organization->hasSubscriptionAccess())
+<x-dynamic-component :component="$billingBlocked ? 'layouts.billing-gate' : 'layouts.app'" title="Abonnement · DekkPilot" heading="Abonnement">
 @php($canManage = auth()->user()->is_super_admin || in_array(auth()->user()->role,['owner','admin'],true))
+<script defer src="{{ asset('billing.js') }}?v=20261004-1"></script>
+@if($billingBlocked)
+<p class="eyebrow">DEKKPILOT · ABONNEMENT</p>
+<h1 id="billing-gate-title">{{ $organization->suspended_at ? 'Tilgangen er stengt' : 'Aktiver abonnementet' }}</h1>
+<p>{{ $organization->name }}</p>
+@if($organization->suspended_at)
+<p>Tilgangen er stengt av DekkPilot. Kontakt systemeier for gjenåpning. Betaling åpner ikke tilgangen automatisk.</p>
+@else
+<p id="billing-gate-description">Kontoen er klar. Fullfør abonnementsbetalingen hos Stripe før du kan bruke DekkPilot.</p>
+@endif
+<div class="billing-price"><strong>249 kr</strong><span>per måned inkl. mva.</span></div>
+<p>Alle funksjoner og brukere er inkludert. SMS faktureres separat etter bruk. Ingen bindingstid.</p>
+@if($organization->stripe_free_month_granted_at)<div class="usage-note">{{ $organization->stripe_free_month_count }} gratismåned(er) {{ $organization->stripe_free_month_applied_at?'er lagt til hos Stripe':'venter på aktivering' }}. Betalingskort registreres hos Stripe.</div>@endif
+@if(in_array($organization->subscription_status,['past_due','unpaid'],true))<div class="errors">En betaling mangler. Åpne Stripe for å betale eller oppdatere kortet, og hent deretter ny status.</div>@endif
+@include('billing.actions')
+<form method="post" action="{{ route('logout') }}">@csrf<button class="button ghost">Logg ut</button></form>
+@else
 <section class="grid form-grid"><article class="panel">
 <p class="eyebrow">DEKKPILOT</p><h2>249 kr per måned inkl. mva.</h2>
 <p>Alle funksjoner og brukere er inkludert. SMS faktureres separat etter bruk.</p>
@@ -17,22 +35,8 @@
 @endif
 <p>SMS denne måneden: <strong>{{ number_format($smsUsage,0,',',' ') }}</strong>.</p>
 </article><aside class="panel"><h2>Betaling og abonnement</h2>
-@if(!$canManage)
-<p>Kontakt virksomhetens eier eller administrator for å aktivere eller oppdatere abonnementet.</p>
-@elseif(!$stripeReady)
-<p>Systemeier må fullføre Stripe-oppsettet før betaling kan startes.</p>
-@else
-@if(!$organization->suspended_at && (!$organization->stripe_subscription_id || in_array($organization->subscription_status,['canceled','incomplete_expired'],true)))
-<form method="post" action="{{ route('billing.checkout') }}" class="stack">@csrf
-<label class="check"><input type="checkbox" name="accept_subscription" value="1" required> Jeg godtar abonnement på 249 kr per måned inkl. mva. med automatisk fornyelse. Eventuell gratis måned vises hos Stripe. Abonnementet kan sies opp til periodens slutt.</label>
-<button class="button">Aktiver abonnement hos Stripe</button></form>
-@endif
-@if($organization->stripe_customer_id)
-<form method="post" action="{{ route('billing.portal') }}">@csrf<button class="button">Administrer hos Stripe</button></form>
-<p>Oppdater betalingskort og fakturaopplysninger, betal utestående fakturaer eller si opp abonnementet.</p>
-@endif
-<form method="post" action="{{ route('billing.refresh') }}">@csrf<button class="button ghost">Oppdater status fra Stripe</button></form>
-@endif
+@include('billing.actions')
 </aside></section>
 <section class="panel"><div class="panel-head"><div><p class="eyebrow">FAKTURAGRUNNLAG</p><h2>Månedsoversikt</h2></div></div><div class="table-wrap"><table><thead><tr><th>Periode</th><th>Abonnement</th><th>SMS</th><th>Rabatt</th><th>Totalt</th><th>Status</th></tr></thead><tbody>@forelse($statements as $statement)<tr><td>{{ $statement->period_start->translatedFormat('F Y') }}</td><td>{{ number_format($statement->subscription_cents/100,2,',',' ') }} kr</td><td>{{ $statement->sms_quantity }} stk.<small>{{ number_format($statement->sms_total_cents/100,2,',',' ') }} kr</small></td><td>{{ number_format($statement->discount_cents/100,2,',',' ') }} kr</td><td><strong>{{ number_format($statement->total_cents/100,2,',',' ') }} kr</strong></td><td><span class="status {{ $statement->status==='invoiced'?'completed':'in_progress' }}">{{ ['draft'=>'Utkast','ready'=>'Klart','invoiced'=>'Fakturert','void'=>'Annullert'][$statement->status] }}</span></td></tr>@empty<tr><td colspan="6" class="empty">Første grunnlag opprettes automatisk etter månedsslutt.</td></tr>@endforelse</tbody></table></div></section>
-</x-layouts.app>
+@endif
+</x-dynamic-component>

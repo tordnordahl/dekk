@@ -3,5 +3,5 @@ document.addEventListener('DOMContentLoaded',()=>{
  const booking=document.querySelector('[data-booking-form]');
  document.querySelectorAll('[data-auto-submit]').forEach(field=>field.addEventListener('change',()=>field.form?.requestSubmit()));
  document.querySelectorAll('[data-confirm]').forEach(button=>button.addEventListener('click',event=>{if(!window.confirm(button.dataset.confirm||'Er du sikker?'))event.preventDefault()}));
- document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{const button=event.submitter;if(button){button.dataset.originalText=button.textContent;button.textContent='Jobber …';button.setAttribute('aria-busy','true')}}));
+ document.querySelectorAll('form').forEach(form=>form.addEventListener('submit',event=>{if(event.defaultPrevented||form.hasAttribute('data-billing-action'))return;const button=event.submitter;if(button){button.dataset.originalText=button.textContent;button.textContent='Jobber …';button.setAttribute('aria-busy','true')}}));
 });

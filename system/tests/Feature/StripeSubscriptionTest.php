@@ -307,4 +307,25 @@ class StripeSubscriptionTest extends TestCase
         $this->assertNotNull($org->fresh()->stripe_synced_at);
         $this->actingAs($owner)->post(route('billing.checkout'),['accept_subscription'=>1])->assertSessionHasErrors('stripe');
     }
+
+    public function test_unpaid_account_has_blocking_dialog_and_stripe_redirect_permission(): void
+    {
+        $owner=$this->user();$this->actingAs($owner);
+        $page=$this->get('/abonnement')->assertOk()->assertSee('role="dialog"',false)->assertSee('Aktiver abonnementet')->assertDontSee('Ny kunde')->assertDontSee('Ny booking')->assertSee('Logg ut');
+        $this->assertStringContainsString("form-action 'self' https://checkout.stripe.com https://billing.stripe.com",$page->headers->get('Content-Security-Policy'));
+        $this->get('/kunder')->assertRedirect('/abonnement');
+        $this->post('/kunder',['name'=>'Skal ikke opprettes'])->assertRedirect('/abonnement');
+        $this->assertDatabaseCount('customers',0);
+        $org=$owner->organization;$this->gateway($org);
+        $response=$this->post(route('billing.checkout'),['accept_subscription'=>1])->assertRedirect('https://checkout.stripe.com/c/pay/test');
+        $this->assertStringContainsString('https://checkout.stripe.com',$response->headers->get('Content-Security-Policy'));
+        $this->get('/kunder')->assertRedirect('/abonnement');
+    }
+    public function test_paid_account_has_normal_billing_page_and_unrelated_pages_keep_strict_csp(): void
+    {
+        $owner=$this->user();$owner->organization->update(['stripe_subscription_id'=>'sub_active','subscription_status'=>'active','subscription_ends_at'=>now()->addMonth()]);
+        $this->actingAs($owner)->get('/abonnement')->assertOk()->assertDontSee('role="dialog"',false)->assertSee('Åpne DekkPilot');
+        $page=$this->get('/kunder')->assertOk();
+        $this->assertStringNotContainsString('https://checkout.stripe.com',$page->headers->get('Content-Security-Policy'));
+    }
 }

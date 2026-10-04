@@ -20,7 +20,11 @@ class SecurityHeaders
         $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
         $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
         $frameAncestors = $mayFrame ? "'self'" : "'none'";
-        $policy = "default-src 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src 'self'; worker-src 'none'; manifest-src 'self'; base-uri 'self'; frame-ancestors {$frameAncestors}; form-action 'self'";
+        $formTargets = "'self'";
+        if ($request->routeIs('billing*', 'checkout.*')) {
+            $formTargets .= ' https://checkout.stripe.com https://billing.stripe.com';
+        }
+        $policy = "default-src 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; media-src 'self'; frame-src 'self'; worker-src 'none'; manifest-src 'self'; base-uri 'self'; frame-ancestors {$frameAncestors}; form-action {$formTargets}";
         if (app()->environment('production') && $request->isSecure()) {
             $policy .= '; upgrade-insecure-requests';
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
