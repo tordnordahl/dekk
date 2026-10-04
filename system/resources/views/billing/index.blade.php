@@ -1,7 +1,7 @@
 @php($billingBlocked = !auth()->user()->is_super_admin && !$organization->hasSubscriptionAccess())
 <x-dynamic-component :component="$billingBlocked ? 'layouts.billing-gate' : 'layouts.app'" title="Abonnement · DekkPilot" heading="Abonnement">
 @php($canManage = auth()->user()->is_super_admin || in_array(auth()->user()->role,['owner','admin'],true))
-<script defer src="{{ route('system.asset.query',['filename'=>'billing.js']) }}?v=20261004-1"></script>
+<script defer src="{{ route('system.asset.query',['filename'=>'billing.js','v'=>'20261004-2']) }}"></script>
 @if($billingBlocked)
 <p class="eyebrow">DEKKPILOT · ABONNEMENT</p>
 <h1 id="billing-gate-title">{{ $organization->suspended_at ? 'Tilgangen er stengt' : 'Aktiver abonnementet' }}</h1>
