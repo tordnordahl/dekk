@@ -1,0 +1,11 @@
+<x-layouts.app title="Målinger · DekkPilot" heading="Målinger og slitasje">
+<section class="panel"><h2>{{ $tireSet->vehicle->registration_number }} · {{ $tireSet->code }}</h2><p>{{ $tireSet->manufacturer }} {{ $tireSet->size }} · {{ ['summer'=>'Sommer','winter'=>'Vinter','all_season'=>'Helår'][$tireSet->season] }} {{ ['studded'=>'· Pigg','unstudded'=>'· Piggfritt'][$tireSet->winter_type]??'' }}</p><p>{{ $tireSet->hotel_notes }}</p><a class="button ghost" href="{{ route('tire-sets.show',$tireSet) }}">Til hjulsettet</a> <a class="button" href="{{ route('tire-sets.inspection',$tireSet) }}">Registrer ny kontroll</a></section>
+@forelse($tireSet->inspections as $inspection)
+<section class="panel"><h2>{{ $inspection->inspected_at->format('d.m.Y H:i') }}</h2><p>{{ $inspection->notes }}</p><div class="table-wrap"><table><thead><tr><th>Hjul</th><th>Mønsterdybde</th><th>Vurdering</th><th>DOT-år</th><th>Slitasje / skader</th><th>Notat</th></tr></thead><tbody>
+@foreach($inspection->measurements as $wheel)
+@php($assessment=\App\Services\TreadAssessment::status($wheel->tread_depth_mm===null?null:(float)$wheel->tread_depth_mm,$tireSet->season))
+<tr><td>{{ ['front_left'=>'Venstre foran','front_right'=>'Høyre foran','rear_left'=>'Venstre bak','rear_right'=>'Høyre bak'][$wheel->position]??$wheel->position }}</td><td>{{ $wheel->tread_depth_mm??'Ikke målt' }}{{ $wheel->tread_depth_mm!==null?' mm':'' }}</td><td><span class="status {{ $assessment==='attention'?'tread-attention':($assessment==='replace'?'cancelled':'') }}">{{ ['unknown'=>'Ikke målt','good'=>'God mønsterdybde','attention'=>'Vurder nye dekk','replace'=>'Bør skiftes'][$assessment] }}</span></td><td>{{ $wheel->dot_year??'Ukjent' }}</td><td>{{ $wheel->uneven_wear?'Ujevn slitasje. ':'' }}{{ $wheel->tire_damage?'Dekkskade. ':'' }}{{ $wheel->rim_damage?'Felgskade. ':'' }} TPMS: {{ ['ok'=>'OK','warning'=>'Varsel','missing'=>'Mangler','not_checked'=>'Ikke kontrollert'][$wheel->tpms_status]??$wheel->tpms_status }}</td><td>{{ $wheel->notes }}</td></tr>
+@endforeach
+</tbody></table></div></section>
+@empty<section class="panel"><h2>Ingen detaljert hjulkontroll er registrert</h2><p>Registrert laveste mønsterdybde: {{ $tireSet->minimum_tread_depth??'Ikke målt' }}. Bruk «Registrer ny kontroll» for å måle alle fire hjul.</p></section>@endforelse
+</x-layouts.app>

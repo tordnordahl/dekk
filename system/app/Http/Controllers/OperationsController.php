@@ -211,7 +211,7 @@ class OperationsController extends Controller
     {
         abort_unless($customer->organization_id === $request->user()->organization_id, 404);
         $request->merge(['registration_number' => strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $request->input('registration_number')))]);
-        $data = $request->validate(['registration_number' => ['required', 'string', 'alpha_num', 'max:20'], 'make' => ['nullable', 'string', 'max:100'], 'model' => ['nullable', 'string', 'max:100'], 'model_year' => ['nullable', 'integer', 'between:1900,2100'], 'mileage' => ['nullable', 'integer', 'min:0'], 'vin' => ['nullable', 'string', 'max:32'], 'recommended_tire_size' => ['nullable', 'string', 'max:100'], 'uses_tire_hotel' => ['nullable', 'boolean']]);
+        $data = $request->validate(['contact_name'=>['nullable','string','max:255'], 'contact_phone'=>['nullable','string','max:32'], 'registration_number' => ['required', 'string', 'alpha_num', 'max:20'], 'make' => ['nullable', 'string', 'max:100'], 'model' => ['nullable', 'string', 'max:100'], 'model_year' => ['nullable', 'integer', 'between:1900,2100'], 'mileage' => ['nullable', 'integer', 'min:0'], 'vin' => ['nullable', 'string', 'max:32'], 'recommended_tire_size' => ['nullable', 'string', 'max:100'], 'uses_tire_hotel' => ['nullable', 'boolean']]);
         $usesTireHotel = (bool) ($data['uses_tire_hotel'] ?? false);
         unset($data['uses_tire_hotel']);
         $existing=Vehicle::with('customer')->where('organization_id',$customer->organization_id)->where('registration_number',$data['registration_number'])->first();
@@ -316,9 +316,9 @@ class OperationsController extends Controller
         $locationId = (string) $request->query('location_id');
         if (in_array($season, ['summer','winter','all_season'], true)) $sets->where('season', $season);
         if (in_array($status, ['received','stored','picked','workshop','delivered'], true)) $sets->where('status', $status);
-        if ($condition === 'attention') $sets->where(fn ($q) => $q->where('minimum_tread_depth','<',3)->orWhere('dot_year','<=',now()->year-8));
+        if ($condition === 'attention') $sets->where(fn ($q) => $q->where('minimum_tread_depth','<',4)->orWhere(fn($w)=>$w->where('season','winter')->where('minimum_tread_depth','<=',4))->orWhere('dot_year','<=',now()->year-8));
         if ($condition === 'critical') $sets->where(fn ($q) => $q->where('minimum_tread_depth','<',1.6)->orWhere('dot_year','<=',now()->year-10));
-        if ($condition === 'good') $sets->where(fn ($q) => $q->whereNull('minimum_tread_depth')->orWhere('minimum_tread_depth','>=',3))->where(fn ($q) => $q->whereNull('dot_year')->orWhere('dot_year','>',now()->year-8));
+        if ($condition === 'good') $sets->where(fn ($q) => $q->where('minimum_tread_depth','>=',4)->where(fn($w)=>$w->where('season','!=','winter')->orWhere('minimum_tread_depth','>',4)))->where(fn ($q) => $q->whereNull('dot_year')->orWhere('dot_year','>',now()->year-8));
         if ($locationId === 'unplaced') $sets->whereNull('storage_location_id');
         elseif (ctype_digit($locationId)) $sets->where('storage_location_id', (int) $locationId);
         match ((string) $request->query('sort', 'newest')) {
@@ -341,7 +341,7 @@ class OperationsController extends Controller
                 'stored' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where('status', 'stored')->count(),
                 'received' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where('status', 'received')->count(),
                 'unplaced' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->whereNull('storage_location_id')->whereNotIn('status', ['delivered'])->count(),
-                'attention' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where(fn ($q) => $q->where('minimum_tread_depth','<',3)->orWhere('dot_year','<=',now()->year-8))->count(),
+                'attention' => TireSet::where('organization_id', $org)->whereNotNull('received_at')->where(fn ($q) => $q->where('minimum_tread_depth','<',4)->orWhere(fn($w)=>$w->where('season','winter')->where('minimum_tread_depth','<=',4))->orWhere('dot_year','<=',now()->year-8))->count(),
             ],
         ]);
     }
@@ -349,17 +349,18 @@ class OperationsController extends Controller
     public function storeTireSet(Request $request, WarehousePlacementService $placement, TireHotelService $hotel): RedirectResponse
     {
         $org = $request->user()->organization_id;
-        $data = $request->validate(['vehicle_id' => ['required', 'integer'], 'storage_location_id' => ['nullable', 'integer'], 'season' => ['required', 'in:summer,winter,all_season'], 'kind' => ['required', 'in:complete_wheels,tires,rims'], 'manufacturer' => ['nullable', 'string', 'max:100'], 'size' => ['nullable', 'string', 'max:50'], 'dot_year' => ['nullable', 'integer', 'between:1990,2100'], 'wheels' => ['required', 'array', 'size:4'], 'wheels.*.position' => ['required', 'distinct', 'in:front_left,front_right,rear_left,rear_right'], 'wheels.*.tread_depth_mm' => ['required', 'numeric', 'between:0,20']]);
+        $data = $request->validate(['winter_type'=>['nullable','in:studded,unstudded'], 'hotel_notes'=>['nullable','string','max:4000'], 'vehicle_id' => ['required', 'integer'], 'storage_location_id' => ['nullable', 'integer'], 'season' => ['required', 'in:summer,winter,all_season'], 'kind' => ['required', 'in:complete_wheels,tires,rims'], 'manufacturer' => ['nullable', 'string', 'max:100'], 'size' => ['nullable', 'string', 'max:50'], 'dot_year' => ['nullable', 'integer', 'between:1990,2100'], 'wheels' => ['required', 'array', 'size:4'], 'wheels.*.position' => ['required', 'distinct', 'in:front_left,front_right,rear_left,rear_right'], 'wheels.*.tread_depth_mm' => ['required', 'numeric', 'between:0,20']]);
         abort_unless(Vehicle::where('organization_id', $org)->whereKey($data['vehicle_id'])->exists(), 422);
         $data = array_merge($data, $request->validate(WarehousePlacementService::rules()));
         $location = null;
         if (!empty($data['storage_location_id'])) $location = StorageLocation::where('organization_id', $org)->where('active', true)->findOrFail($data['storage_location_id']);
+        if ($data['season'] !== 'winter') $data['winter_type']=null;
         $wheels = $data['wheels']; unset($data['wheels']);
         $minimum = (float) collect($wheels)->min('tread_depth_mm');
         $set = DB::transaction(function () use ($data, $wheels, $minimum, $location, $placement, $org, $request) {
             $coordinates = $placement->coordinates($location, null, $data);
             $set = TireSet::create([...$data, 'minimum_tread_depth' => $minimum, ...$coordinates, 'public_id' => (string) Str::uuid(), 'organization_id' => $org, 'code' => 'HJ-'.strtoupper(Str::random(8)), 'status' => $location ? 'stored' : 'received', 'received_at' => now()]);
-            $status = $minimum < 3 ? 'replace' : ($minimum < 4 ? 'attention' : 'good');
+            $status = \App\Services\TreadAssessment::status($minimum, $set->season);
             $inspection = TireInspection::create(['public_id' => (string) Str::uuid(), 'organization_id' => $org, 'tire_set_id' => $set->id, 'inspected_by' => $request->user()->id, 'overall_status' => $status, 'inspected_at' => now()]);
             foreach ($wheels as $wheel) $inspection->measurements()->create([...$wheel, 'dot_year' => $data['dot_year'] ?? null, 'tpms_status' => 'not_checked', 'tire_damage' => false, 'rim_damage' => false, 'uneven_wear' => false]);
             return $set;
@@ -440,7 +441,7 @@ class OperationsController extends Controller
             return [$set->id => $result->getDataUri()];
         });
 
-        return view('inventory.labels', ['sets' => $sets, 'qrCodes' => $qrCodes]);
+        return view('inventory.labels', ['sets' => $sets, 'qrCodes' => $qrCodes, 'labelSettings'=>\App\Services\LabelSettings::forOrganization($request->user()->organization_id)]);
     }
 
     public function markLabelsPrinted(Request $request): JsonResponse

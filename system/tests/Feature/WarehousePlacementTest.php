@@ -47,7 +47,7 @@ class WarehousePlacementTest extends TestCase
             $this->get($url)->assertOk()->assertSee('Rad 1 · Lengde 12 · Høyde 3');
         }
         $response = $this->get(route('tire-sets.labels',['ids'=>$set->id]))->assertOk()->assertSee('Lengde 12')->assertSee('Høyde 3');
-        $this->assertSame(1, substr_count($response->getContent(), '<article class="label">'));
+        $this->assertSame(1, substr_count($response->getContent(), '<article class="label '));
     }
 
     public function test_new_intake_accepts_manual_coordinates(): void
@@ -134,7 +134,7 @@ class WarehousePlacementTest extends TestCase
     {
         extract($this->fixture());$other=$this->anotherSet($set);$deleted=$this->anotherSet($set);$deleted->delete();
         $response=$this->actingAs($user)->get(route('tire-sets.labels',['ids'=>implode(',',[$set->id,$other->id,$deleted->id])]))->assertOk();
-        $this->assertSame(2,substr_count($response->getContent(),'<article class="label">'));
+        $this->assertSame(2,substr_count($response->getContent(),'<article class="label '));
         $response->assertDontSee($deleted->code);
     }
 

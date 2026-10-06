@@ -12,6 +12,7 @@
     @foreach(['app.css','operations.css','vehicle.css','admin.css','ui-fixes.css','inventory.css','inventory-table.css','inventory-density.css','tire-catalog.css','label-modal.css','workday.css','opportunities.css','quote-tools.css','booking-calendar.css','booking-actions.css','email-preview.css','dashboard.css','business-ranking.css','statistics.css','app-shell.css','ux-review.css','design-polish.css','floor-details.css','technician-mode.css','help.css','profile-menu-fix.css'] as $stylesheet)
     <link rel="stylesheet" href="{{ $safeAsset($stylesheet) }}?v=20260812-10">
     @endforeach
+<link rel="stylesheet" href="{{ route('system.asset.query',['filename'=>'hotel-workflow.css','v'=>'20261006']) }}">
 </head>
 <body class="{{ session('ui_mode') === 'technician' ? 'ui-mode-technician' : 'ui-mode-portal' }}"><a class="screen-reader-only" href="#main-content">Hopp til hovedinnhold</a>
 @if(session('demo_read_only'))<div class="impersonation-bar" style="position:sticky;top:0;z-index:1000"><span>👁 <strong>Skrivebeskyttet demo</strong> – du kan se hele systemet, men ingen data kan endres eller sendes.</span></div>@endif

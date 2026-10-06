@@ -144,6 +144,14 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::post('/dekkhotellkrav/{charge}/betal', [HotelAgreementController::class, 'payment'])->name('hotel-charges.payment');
     Route::post('/dekkhotellkrav/{charge}/fakturer', [HotelAgreementController::class, 'invoice'])->middleware('role:owner,admin,manager')->name('hotel-charges.invoice');
     Route::post('/lager/hjulsett/{tireSet}/tell', [HotelAgreementController::class, 'count'])->name('tire-sets.count');
+    Route::get('/lager/eksport.csv', [\App\Http\Controllers\HotelFeaturesController::class, 'export'])->middleware('role:owner,admin,manager,customer_service')->name('inventory.export');
+    Route::get('/lager/hjulsett/{tireSet}/malinger', [\App\Http\Controllers\HotelFeaturesController::class, 'measurements'])->name('tire-sets.measurements');
+    Route::middleware('role:owner,admin,manager,customer_service,technician,warehouse')->group(function () {
+        Route::put('/lager/hjulsett/{tireSet}/opplysninger', [\App\Http\Controllers\HotelFeaturesController::class, 'updateSet'])->name('tire-sets.details');
+        Route::get('/lager/hjulsett/{tireSet}/sesongbytte', [\App\Http\Controllers\HotelFeaturesController::class, 'exchangeForm'])->name('tire-sets.exchange');
+        Route::post('/lager/hjulsett/{tireSet}/sesongbytte', [\App\Http\Controllers\HotelFeaturesController::class, 'exchange'])->name('tire-sets.exchange.store');
+    });
+    Route::put('/biler/{vehicle}/kontakt', [\App\Http\Controllers\HotelFeaturesController::class, 'vehicleContact'])->middleware('role:owner,admin,manager,customer_service')->name('vehicles.contact');
     Route::get('/lagerkart', [WarehouseController::class, 'map'])->name('warehouse.map');
     Route::post('/lager/hjulsett', [OperationsController::class, 'storeTireSet'])->name('tire-sets.store');
     Route::patch('/lager/hjulsett/{tireSet}/status', [OperationsController::class, 'updateTireSetStatus'])->name('tire-sets.status');
@@ -183,6 +191,10 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
         Route::post('/sikkerhet/tofaktor', [TwoFactorController::class, 'enable'])->middleware('throttle:6,1')->name('admin.security.2fa.enable');
         Route::delete('/sikkerhet/tofaktor', [TwoFactorController::class, 'disable'])->name('admin.security.2fa.disable');
         Route::delete('/sikkerhet/token/{token}', [TwoFactorController::class, 'revokeToken'])->name('admin.security.token.revoke');
+        Route::get('/etiketter', [\App\Http\Controllers\HotelFeaturesController::class, 'labelSettings'])->name('admin.labels');
+        Route::put('/etiketter', [\App\Http\Controllers\HotelFeaturesController::class, 'saveLabels'])->name('admin.labels.save');
+        Route::get('/etiketter/prove', [\App\Http\Controllers\HotelFeaturesController::class, 'previewLabels'])->name('admin.labels.preview');
+        Route::delete('/lageroppsett/plasser/{location}', [\App\Http\Controllers\HotelFeaturesController::class, 'archiveRack'])->name('admin.warehouse.archive');
         Route::get('/oppsett', [AdminController::class, 'index'])->name('admin.settings');
         Route::get('/system-og-backup', [SystemSettingsController::class, 'index'])->name('admin.system');
         Route::put('/system-og-backup/virksomhetsavsender', [SystemSettingsController::class, 'saveTenantMail'])->name('admin.system.tenant-mail');

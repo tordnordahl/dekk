@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const minimum = Math.min(...values), winter = season?.value === 'winter';
     lowest.textContent = `${minimum.toFixed(1).replace('.', ',')} mm`;
     if (minimum < (winter ? 3 : 1.6)) { summary.classList.add('replace'); advice.textContent = `Under lovkravet for ${winter ? 'vinterføre (3 mm)' : 'sommerføre (1,6 mm)'}. Må følges opp.`; }
-    else if (minimum < 4) { summary.classList.add('attention'); advice.textContent = 'Bør følges opp. DekkPilot oppretter automatisk en salgsmulighet.'; }
+    else if (minimum < 4 || (winter && minimum <= 4)) { summary.classList.add('attention'); advice.textContent = 'Gul anbefaling: vurder nye dekk før videre sesongbruk.'; }
     else advice.textContent = 'Målingene ser gode ut.';
   };
   depths.forEach(input => input.addEventListener('input', updateMeasurements)); season?.addEventListener('change', updateMeasurements); updateMeasurements();

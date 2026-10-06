@@ -50,6 +50,7 @@ class WarehouseController extends Controller
     public function update(Request $request, StorageLocation $location): RedirectResponse
     {
         $this->owns($request, $location);
+        abort_if($location->archived_at,404);
         $data = $this->validated($request, $location); $data['capacity'] = $data['shelf_count'] * $data['sets_per_shelf'];
         DB::transaction(function () use ($location, $data) {
             $location = StorageLocation::whereKey($location->id)->lockForUpdate()->firstOrFail();
@@ -67,6 +68,7 @@ class WarehouseController extends Controller
     public function toggle(Request $request, StorageLocation $location): RedirectResponse
     {
         $this->owns($request, $location);
+        abort_if($location->archived_at,404);
         if ($location->active && $location->tireSets()->whereNotIn('status', ['delivered'])->exists()) return back()->withErrors(['location' => 'Flytt hjulsettene ut av '.$location->code.' før plassen deaktiveres.']);
         $location->update(['active' => ! $location->active]);
         return back()->with('success', $location->code.' er '.($location->active ? 'aktivert' : 'deaktivert').'.');
@@ -132,7 +134,7 @@ class WarehouseController extends Controller
 
     private function locations(Request $request)
     {
-        return StorageLocation::withCount(['tireSets' => fn ($query) => $query->whereNotIn('status', ['delivered'])])->where('organization_id', $request->user()->organization_id)->where('branch_id', $request->user()->branch_id)->orderBy('pick_order')->orderBy('code')->get();
+        return StorageLocation::withCount(['tireSets' => fn ($query) => $query->whereNotIn('status', ['delivered'])])->where('organization_id', $request->user()->organization_id)->where('branch_id', $request->user()->branch_id)->whereNull('archived_at')->orderBy('pick_order')->orderBy('code')->get();
     }
 
     private function stats(Request $request, $locations): array

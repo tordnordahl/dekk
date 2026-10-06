@@ -12,7 +12,7 @@ class SecurityHeaders
     {
         $response = $next($request);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $mayFrame = $request->routeIs('tire-sets.labels', 'admin.communications.message-preview');
+        $mayFrame = $request->routeIs('tire-sets.labels', 'admin.labels.preview', 'admin.communications.message-preview');
         $response->headers->set('X-Frame-Options', $mayFrame ? 'SAMEORIGIN' : 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(self), geolocation=(), microphone=()');
