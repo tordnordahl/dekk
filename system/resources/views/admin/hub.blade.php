@@ -1,6 +1,7 @@
 <x-layouts.app title="Admin · DekkPilot" heading="Administrasjon">
 <section class="panel admin-intro"><p class="eyebrow">KONTROLLSENTER</p><h2>Hva vil du administrere?</h2><p class="muted">Oppsett, integrasjoner og køer er samlet i tydelige arbeidsområder.</p></section>
 <section class="admin-hub-grid">
+  <a class="panel admin-hub-card" href="{{ route('admin.labels') }}"><span class="hub-icon">▤</span><div><h2>Etiketter</h2><p>Velg etikettmal, størrelse, større tekst og QR-kode. Se eksempler og skriv ut en prøve.</p><strong>Åpne etikettoppsett →</strong></div></a>
   <a class="panel admin-hub-card" href="{{ route('admin.settings') }}"><span class="hub-icon">◎</span><div><h2>Team og drift</h2><p>Ansatte, roller, arbeidsbukker og tidsbruk.</p><strong>{{ $counts['employees'] }} ansatte →</strong></div></a>
   <a class="panel admin-hub-card" href="{{ route('admin.tires') }}"><span class="hub-icon">◉</span><div><h2>Dekkatalog og varelager</h2><p>Tusenvis av salgsdekk, priser, lagerantall og rask import fra Excel.</p><strong>Åpne dekkatalogen →</strong></div></a>
   <a class="panel admin-hub-card" href="{{ route('admin.warehouse') }}"><span class="hub-icon">▦</span><div><h2>Lagerkart og plasser</h2><p>Bygg soner, reoler og henteplasser visuelt for raskere logistikk.</p><strong>{{ $counts['locations'] }} aktive plasser →</strong></div></a>
