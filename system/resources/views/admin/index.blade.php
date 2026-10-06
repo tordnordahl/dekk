@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="{{ route('system.asset.query',['filename'=>'service-admin.css','v'=>'20261006']) }}">
 <link rel="stylesheet" href="{{ route('system.asset.query',['filename'=>'settings-navigation.css','v'=>'20261006']) }}">
 @php
-$sections=['team'=>'Ansatte og roller','capacity'=>'Åpningstider og kapasitet','services'=>'Tjenester og priser','products'=>'Dekk og varelager','labels'=>'Etiketter','integrations'=>'Biloppslag'];
+$sections=['team'=>'Ansatte og roller','capacity'=>'Åpningstider og kapasitet','services'=>'Tjenester og priser','products'=>'Dekk og varelager','labels'=>'Etiketter','integrations'=>'Statens vegvesen – biloppslag'];
 $activeSection=request()->query('tab','team');
 if(!is_string($activeSection)||!array_key_exists($activeSection,$sections)) $activeSection='team';
 @endphp

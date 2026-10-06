@@ -14,7 +14,7 @@ class VehicleLookupService
         $setting = IntegrationSetting::where('organization_id', $organizationId)->where('provider', 'vegvesen')->where('active', true)->first();
         $apiKey = $setting ? (string) data_get(json_decode(Crypt::decryptString($setting->encrypted_credentials), true), 'api_key') : (string) config('services.vegvesen.api_key');
         if ($apiKey === '') {
-            throw new RuntimeException('Kjøretøyoppslag er klart, men API-nøkkel fra Statens vegvesen mangler. Legg den inn som VEGVESEN_API_KEY i .env.');
+            throw new RuntimeException('Kjøretøyoppslag er klart, men API-nøkkel fra Statens vegvesen mangler. Legg den inn under Administrasjon → Team og drift → Statens vegvesen – biloppslag.');
         }
 
         $registrationNumber = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $registrationNumber));
