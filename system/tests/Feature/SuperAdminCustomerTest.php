@@ -46,11 +46,13 @@ class SuperAdminCustomerTest extends TestCase
  public function test_payment_display_distinguishes_paid_free_and_unknown_and_can_filter_closed():void {
   $super=$this->user(true);$owner=$this->user();$org=$owner->organization;
   $this->actingAs($super)->get(route('superadmin.customer',$org))->assertSee('Ikke bekreftet');
+  $this->get('/superadmin')->assertOk()->assertSee('Ikke bekreftet')->assertDontSee('@include',false);
   $org->update(['stripe_latest_invoice'=>['status'=>'paid','amount_paid'=>24900,'currency'=>'nok']]);
   $this->get(route('superadmin.customer',$org))->assertSee('Betalt')->assertSee('249,00 NOK innbetalt');
+  $this->get('/superadmin')->assertOk()->assertSee('249,00 NOK innbetalt')->assertDontSee('@include',false);
   $org->update(['stripe_latest_invoice'=>['status'=>'paid','amount_paid'=>0,'currency'=>'nok'],'suspended_at'=>now(),'name'=>'Stengt kunde']);
   $this->get(route('superadmin.customer',$org))->assertSee('Oppgjort – 0 kr');
-  $this->get('/superadmin?access=closed')->assertSee('Stengt kunde');
+  $this->get('/superadmin?access=closed')->assertSee('Stengt kunde')->assertSee('Oppgjort – 0 kr')->assertDontSee('@include',false);
   $this->get('/superadmin?access=open')->assertDontSee('Stengt kunde');
  }
 }

@@ -8,7 +8,13 @@
 @php($owner=$organization->users->firstWhere('role','owner')??$organization->users->first())
 <tr><td><strong><a href="{{ route('superadmin.customer',$organization) }}">{{ $organization->name }}</a></strong><small>{{ $organization->organization_number ?: 'Org.nr. mangler' }}</small><small>{{ $organization->email ?: $owner?->email }}</small></td>
 <td><span class="status {{ $organization->hasSubscriptionAccess()?'completed':'cancelled' }}">{{ $organization->suspended_at ? 'Stengt av superadmin' : ($organization->hasSubscriptionAccess()?'Åpen':'Mangler abonnement') }}</span></td>
-<td>@if($organization->hasFreeAccess())<strong>Gratis tilgang</strong><small>Til {{ $organization->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i') }}</small>@else@include('superadmin.payment-status')@endif</td>
+<td>
+@if($organization->hasFreeAccess())
+<strong>Gratis tilgang</strong><small>Til {{ $organization->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i') }}</small>
+@else
+@include('superadmin.payment-status')
+@endif
+</td>
 <td>{{ ['active'=>'Aktivt','trialing'=>'Prøveperiode','past_due'=>'Forfalt','incomplete'=>'Ikke aktivert','canceled'=>'Avsluttet','unpaid'=>'Ikke betalt','paused'=>'Pauset','incomplete_expired'=>'Aktivering utløpt'][$organization->subscription_status]??$organization->subscription_status }}
 @if($organization->stripe_cancel_at_period_end)<small>Opphører ved periodeslutt</small>@endif
 @if($organization->stripe_free_month_granted_at)<small>{{ $organization->stripe_free_month_count }} gratismåned(er) tildelt {{ $organization->stripe_free_month_granted_at->format('d.m.Y') }}</small>@endif</td>
