@@ -67,7 +67,7 @@ class BookingAvailabilityService
     private function capacity(int $organizationId, int $branchId, Carbon $start, Carbon $end): int
     {
         $bays = WorkBay::where('branch_id', $branchId)->where('active', true)->count();
-        $technicians = User::where('organization_id', $organizationId)->where('branch_id', $branchId)->where('active', true)->where('role', 'technician')->count();
+        $technicians = User::where('is_super_admin',false)->where('organization_id', $organizationId)->where('branch_id', $branchId)->where('active', true)->where('role', 'technician')->count();
         $shifts = DB::table('employee_availabilities')->where('organization_id', $organizationId)->where('type', 'shift')
             ->where('starts_at', '<=', $start)->where('ends_at', '>=', $end)->distinct()->count('user_id');
         if ($shifts > 0) $technicians = $shifts;

@@ -17,7 +17,7 @@ class DemoBookingSeeder
     {
         $customers=$organization->customers()->with('vehicles')->get()->filter(fn($customer)=>$customer->vehicles->isNotEmpty())->values();
         if($customers->isEmpty())throw new RuntimeException('Demomiljøet mangler kunder med kjøretøy.');
-        $technicians=User::where('organization_id',$organization->id)->where('branch_id',$branch->id)->where('role','technician')->where('active',true)->get();
+        $technicians=User::where('is_super_admin',false)->where('organization_id',$organization->id)->where('branch_id',$branch->id)->where('role','technician')->where('active',true)->get();
         $bays=WorkBay::where('organization_id',$organization->id)->where('branch_id',$branch->id)->where('active',true)->get();
 
         return DB::transaction(function()use($organization,$branch,$customers,$technicians,$bays,$refreshFuture){

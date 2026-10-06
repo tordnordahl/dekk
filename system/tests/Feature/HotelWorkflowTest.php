@@ -27,6 +27,29 @@ class HotelWorkflowTest extends TestCase {
     private function exchangeData($location,$incoming): array {
         return ['confirm'=>1,'incoming_mode'=>'existing','incoming_id'=>$incoming->id,'storage_location_id'=>$location->id,'storage_shelf_number'=>1,'storage_position_number'=>1];
     }
+    public function test_settings_navigation_opens_only_selected_area_and_handles_invalid_tabs(): void {
+        extract($this->fixture());$this->actingAs($user);
+        foreach(['team'=>'Ansatte og roller','capacity'=>'Arbeidsbukker og tilgjengelighet','services'=>'Tjenestekatalog','products'=>'Dekk og priser','labels'=>'Etikettutskrift','integrations'=>'Statens vegvesen'] as $tab=>$heading) {
+            $page=$this->get(route('admin.settings',['tab'=>$tab]))->assertOk()->assertSee('<h2>'.$heading.'</h2>',false)->assertSee('aria-current="page"',false);
+            if($tab!=='team') $page->assertDontSee('name="password"',false);
+            if($tab!=='integrations') $page->assertDontSee('name="api_key"',false);
+        }
+        $this->get(route('admin.settings',['tab'=>['bad']]))->assertOk()->assertSee('<h2>Ansatte og roller</h2>',false);
+    }
+    public function test_superadmin_is_not_tenant_staff_but_can_still_enter_customer(): void {
+        extract($this->fixture());
+        $support=User::factory()->create(['organization_id'=>$org->id,'branch_id'=>$branch->id,'name'=>'SUPPORT-HIDDEN-ACCOUNT','email'=>'support-hidden@example.no','is_super_admin'=>true,'role'=>'admin','active'=>true]);
+        $this->actingAs($user)->get(route('admin.settings'))->assertOk()->assertDontSee('SUPPORT-HIDDEN-ACCOUNT')->assertDontSee('support-hidden@example.no');
+        $this->get(route('admin'))->assertOk()->assertSee('1 ansatte')->assertSee(route('admin.labels'),false);
+        $this->get(route('bookings'))->assertOk()->assertDontSee('SUPPORT-HIDDEN-ACCOUNT');
+        $this->put(route('admin.employees.update',$support),['name'=>'Changed','email'=>'changed@example.no','role'=>'admin'])->assertNotFound();
+        $this->patch(route('admin.employees.toggle',$support))->assertNotFound();
+        $this->assertTrue($support->fresh()->active);
+        $other=$this->fixture();
+        $this->actingAs($support)->post(route('superadmin.enter',$other['org']))->assertRedirect();
+        $this->get(route('admin.settings'))->assertOk()->assertSee('Du arbeider som superadmin');
+        $this->assertSame($org->id,$support->fresh()->organization_id);
+    }
     public function test_removing_rack_preserves_history_and_rejects_occupied_or_foreign_racks(): void {
         extract($this->fixture());$this->actingAs($user);
         $set->update(['storage_location_id'=>$location->id]);

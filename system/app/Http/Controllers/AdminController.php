@@ -29,7 +29,7 @@ class AdminController extends Controller
     {
         $org = $request->user()->organization_id;
         return view('admin.hub', ['counts' => [
-            'employees'=>User::where('organization_id',$org)->count(),
+            'employees'=>User::where('is_super_admin',false)->where('organization_id',$org)->count(),
             'services'=>ServiceProduct::where('organization_id',$org)->where('active',true)->count(),
             'exports'=>\App\Models\InvoiceExport::where('organization_id',$org)->whereIn('status',['ready','failed'])->count(),
             'messages'=>DB::table('outbound_messages')->where('organization_id',$org)->whereIn('status',['queued','failed'])->count(),
@@ -81,7 +81,7 @@ class AdminController extends Controller
         $org = $request->user()->organization_id;
         $defaultServices->seed($org);
         return view('admin.index', [
-            'employees' => User::where('organization_id', $org)->orderBy('name')->get(),
+            'employees' => User::where('is_super_admin',false)->where('organization_id', $org)->orderBy('name')->get(),
             'workBays' => WorkBay::where('organization_id', $org)->orderBy('code')->get(),
             'settings' => ServiceSetting::firstOrCreate(['branch_id' => $request->user()->branch_id], ['organization_id' => $org]),
             'products' => TireProduct::where('organization_id', $org)->latest()->limit(20)->get(),

@@ -48,7 +48,7 @@ class OperationsController extends Controller
         $settings = ServiceSetting::where('organization_id', $org)->where('branch_id', $branch)->first();
         $hours = $settings?->weekly_hours ?? [1=>['08:00','16:00'],2=>['08:00','16:00'],3=>['08:00','16:00'],4=>['08:00','16:00'],5=>['08:00','16:00']];
         $bayCount = WorkBay::where('branch_id', $branch)->where('active', true)->count();
-        $technicianCount = User::where('organization_id', $org)->where('branch_id', $branch)->where('active', true)->where('role', 'technician')->count();
+        $technicianCount = User::where('is_super_admin',false)->where('organization_id', $org)->where('branch_id', $branch)->where('active', true)->where('role', 'technician')->count();
         $parallelCapacity = $bayCount > 0 && $technicianCount > 0 ? min($bayCount, $technicianCount) : max(1, $bayCount, $technicianCount);
         $occupancy = collect(range(0, 6))->map(function (int $offset) use ($capacityBookings, $hours, $parallelCapacity) {
             $day = today()->addDays($offset);
@@ -468,7 +468,7 @@ class OperationsController extends Controller
             ])->sortBy(fn($set)=>(['delivered'=>0,'workshop'=>1,'picked'=>2,'received'=>3,'stored'=>4][$set['status']]??99))->values()->all() ?? []);
         });
         $workBays = WorkBay::where('branch_id', $request->user()->branch_id)->where('active', true)->orderBy('code')->get();
-        $employees = User::where('organization_id', $org)->where('active', true)->orderBy('name')->get();
+        $employees = User::where('is_super_admin',false)->where('organization_id', $org)->where('active', true)->orderBy('name')->get();
         $calendarEmployees = $employees->where('branch_id', $request->user()->branch_id)->values();
         $capacityBookings = Booking::where('organization_id', $org)->where('branch_id', $request->user()->branch_id)->whereNotIn('status', ['cancelled', 'no_show'])->where('starts_at', '>=', today()->subDay())->where('starts_at', '<', today()->addDays(62))->get(['id','starts_at','ends_at']);
         if ($workBays->isNotEmpty()) $bookings->getCollection()->each(function ($booking) use ($capacityBookings, $workBays) {$simultaneous=$capacityBookings->filter(fn($other)=>$other->starts_at->lt($booking->ends_at)&&$other->ends_at->gt($booking->starts_at))->count();$booking->setAttribute('capacity_overbooked',$simultaneous>$workBays->count());});
@@ -501,7 +501,7 @@ class OperationsController extends Controller
         if ($request->query('view') === 'available' && $services->isNotEmpty()) {
             $availabilityService = $services->firstWhere('id',(int)$request->query('service_id')) ?? $services->first();
             $day = $request->filled('available_date') ? now()->parse($request->query('available_date'))->startOfDay() : today();if($day->lt(today()))$day=today();
-            $duration=max(5,(int)$availabilityService->duration_minutes);$bayCount=$workBays->count();$technicianCount=User::where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->where('active',true)->where('role','technician')->count();$capacity=$bayCount>0&&$technicianCount>0?min($bayCount,$technicianCount):max(1,$bayCount,$technicianCount);
+            $duration=max(5,(int)$availabilityService->duration_minutes);$bayCount=$workBays->count();$technicianCount=User::where('is_super_admin',false)->where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->where('active',true)->where('role','technician')->count();$capacity=$bayCount>0&&$technicianCount>0?min($bayCount,$technicianCount):max(1,$bayCount,$technicianCount);
             $existing=Booking::where('organization_id',$org)->where('branch_id',$request->user()->branch_id)->whereNotIn('status',['cancelled','no_show'])->where('starts_at','<',$day->copy()->addDays(31)->endOfDay())->where('ends_at','>',$day)->get(['starts_at','ends_at']);
             for($checked=0;$checked<30&&$availabilitySlots->count()<40;$checked++,$day->addDay()){if($day->isWeekend())continue;for($slot=$day->copy()->setTime(8,0);$slot->copy()->addMinutes($duration)->lte($day->copy()->setTime(16,0));$slot->addMinutes(15)){if($slot->isPast())continue;$end=$slot->copy()->addMinutes($duration);$occupied=$existing->filter(fn($booking)=>$booking->starts_at->lt($end)&&$booking->ends_at->gt($slot))->count();if($occupied<$capacity){$availabilitySlots->push(['starts_at'=>$slot->format('Y-m-d\TH:i'),'day_key'=>$slot->toDateString(),'day'=>$slot->translatedFormat('l d. F'),'time'=>$slot->format('H:i'),'end'=>$end->format('H:i')]);if($availabilitySlots->count()>=40)break;}}}
         }
@@ -561,7 +561,7 @@ class OperationsController extends Controller
         $duration = max(5, (int) $services->sum('duration_minutes'));
         $requiredCapacity = max(1, (int) ($data['vehicle_count'] ?? 1));
         $bayCount = WorkBay::where('branch_id', $user->branch_id)->where('active', true)->count();
-        $technicianCount = User::where('organization_id', $user->organization_id)->where('branch_id', $user->branch_id)->where('active', true)->where('role', 'technician')->count();
+        $technicianCount = User::where('is_super_admin',false)->where('organization_id', $user->organization_id)->where('branch_id', $user->branch_id)->where('active', true)->where('role', 'technician')->count();
         $capacity = $bayCount > 0 && $technicianCount > 0 ? min($bayCount, $technicianCount) : max(1, $bayCount, $technicianCount);
         $day = isset($data['date']) ? now()->parse($data['date'])->startOfDay() : today();
         if ($day->lt(today())) $day = today();
@@ -590,7 +590,7 @@ class OperationsController extends Controller
         $customer = Customer::where('organization_id', $org)->findOrFail($data['customer_id']);
         $vehicles = Vehicle::where('organization_id', $org)->where('customer_id', $customer->id)->whereIn('id', $data['vehicle_ids'])->get();
         abort_unless($vehicles->count() === count($data['vehicle_ids']), 422);
-        if (!empty($data['assigned_user_id'])) abort_unless(User::where('organization_id', $org)->where('active', true)->whereKey($data['assigned_user_id'])->exists(), 422);
+        if (!empty($data['assigned_user_id'])) abort_unless(User::where('is_super_admin',false)->where('organization_id', $org)->where('active', true)->whereKey($data['assigned_user_id'])->exists(), 422);
         $services = ServiceProduct::where('organization_id',$org)->where('active',true)->whereIn('id',$data['service_product_ids'])->get();
         abort_unless($services->count() === count($data['service_product_ids']), 422);
         $service = $services->firstWhere('id', (int) $data['service_product_ids'][0]) ?? $services->first();

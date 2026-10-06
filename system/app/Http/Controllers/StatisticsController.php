@@ -25,7 +25,7 @@ class StatisticsController extends Controller
         $storedCount=TireSet::where('organization_id',$org)->where('status','stored')->count();
         $planningMinutes=max((int)($dailyMinutes->max()??0),(int)ceil(($storedCount*$minutesPerChange)/20));
         $recommended=$planningMinutes>0?max(1,(int)ceil($planningMinutes/420)):0;
-        $active=User::where('organization_id',$org)->where('branch_id',$branch)->where('active',true)->where('role','technician')->count();
+        $active=User::where('is_super_admin',false)->where('organization_id',$org)->where('branch_id',$branch)->where('active',true)->where('role','technician')->count();
         $bays=WorkBay::where('branch_id',$branch)->where('active',true)->count();
         $today=Booking::where('organization_id',$org)->where('branch_id',$branch)->whereDate('starts_at',today())->get();
         $confirmationBase=$upcoming->whereIn('confirmation_status',['pending','confirmed','declined']);
