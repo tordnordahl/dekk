@@ -87,7 +87,7 @@
 </div>
 @if(session('ui_mode') === 'technician')<nav class="technician-mobile-nav" aria-label="Teknikermeny"><a class="{{ request()->routeIs('workday*')?'active':'' }}" href="{{ route('workday') }}"><x-icon name="workday"/><span>I dag</span></a><a class="{{ request()->routeIs('warehouse.map')?'active':'' }}" href="{{ route('warehouse.map') }}"><x-icon name="warehouse"/><span>Kart</span></a><a class="{{ request()->routeIs('inventory*')?'active':'' }}" href="{{ route('inventory') }}"><x-icon name="tires"/><span>Hjul</span></a><a class="{{ request()->routeIs('actions')?'active':'' }}" href="{{ route('actions') }}"><x-icon name="orders"/><span>Avvik</span></a><a href="{{ route('ui-mode.choose') }}"><x-icon name="settings"/><span>Bytt</span></a></nav>@endif
 @foreach(['app-shell.js','profile-menu.js','email-preview.js','booking-capacity.js','quote-preview.js','ux-review.js'] as $script)
-<script defer src="{{ $script === 'ux-review.js' ? route('system.asset.query',['filename'=>$script,'v'=>'20261004-3']) : $safeAsset($script).'?v=20261004-3' }}"></script>
+<script defer src="{{ in_array($script,['ux-review.js','quote-preview.js'],true) ? route('system.asset.query',['filename'=>$script,'v'=>'20261006-preview-1']) : $safeAsset($script).'?v=20261004-3' }}"></script>
 @endforeach
 </body>
 </html>

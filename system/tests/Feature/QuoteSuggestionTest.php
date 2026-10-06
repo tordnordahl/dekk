@@ -10,6 +10,12 @@ class QuoteSuggestionTest extends TestCase{
   $this->actingAs($owner)->get(route('quotes.suggestion',$set))->assertOk()->assertSee('Det beste')->assertSee('Bra valg')->assertSee('Godt valg')->assertSee('Forhåndsvis e-post')->assertDontSee('Feil størrelse');
   $this->actingAs($owner)->post(route('quotes.suggestion.preview',$set),['product_ids'=>$products->take(3)->pluck('id')->all(),'message'=>'Personlig testmelding'])->assertOk()->assertSee('2.4 mm')->assertSee('3 mm')->assertSee('Personlig testmelding');
   $this->assertDatabaseCount('quotes',0);
+  $this->withSession(['demo_read_only'=>true])->postJson(route('quotes.suggestion.preview',$set),['product_ids'=>$products->take(3)->pluck('id')->all()])->assertOk()->assertHeader('X-DekkPilot-Preview','quote-email')->assertSee('FORHÅNDSVISNING');
+  Mail::assertNothingSent();$this->assertDatabaseCount('quotes',0);
+  $this->post(route('quotes.suggestion.send',$set),['product_ids'=>$products->take(3)->pluck('id')->all()])->assertSessionHasErrors('demo');
+  Mail::assertNothingSent();$this->assertDatabaseCount('quotes',0);
+  $this->withSession(['demo_read_only'=>false])->postJson(route('quotes.suggestion.preview',$set),['product_ids'=>[$products->last()->id]])->assertUnprocessable()->assertJsonValidationErrors('product_ids');
+
   $this->actingAs($owner)->post(route('quotes.bulk.send'))->assertRedirect(route('quotes'))->assertSessionHas('success','1 tilbud ble sendt til kundene.');$quote=Quote::with('items')->firstOrFail();$this->assertCount(3,$quote->items);$this->assertSame(['Det beste','Bra valg','Godt valg'],$quote->items->sortBy('position')->pluck('recommendation_label')->all());$mail=Mail::sent(QuoteMail::class)->first();$rendered=$mail->render();$this->assertStringContainsString('Premium',$rendered);$this->assertStringContainsString('Quality',$rendered);$this->assertStringContainsString('Value',$rendered);$this->assertStringContainsString('Se, velg og bekreft tilbudet',$rendered);$token=basename(parse_url($mail->responseUrl,PHP_URL_PATH));$choice=$quote->items->sortBy('position')->values()[1];$this->post('/tilbud/svar/'.$token,['decision'=>'accepted','quote_item_id'=>$choice->id,'terms_accepted'=>1])->assertRedirect();$this->assertDatabaseHas('quotes',['id'=>$quote->id,'status'=>'accepted','selected_quote_item_id'=>$choice->id,'total_cents'=>$choice->line_total_cents,'purchase_terms_version'=>'2026-08-09']);
  }
  public function test_ten_year_old_tires_create_an_offer_even_with_good_tread():void{
