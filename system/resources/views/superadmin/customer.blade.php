@@ -1,6 +1,20 @@
 <x-layouts.app title="Kundekort · DekkPilot" :heading="$organization->name">
 <div class="admin-subnav"><a href="{{ route('superadmin') }}">← Alle kunder</a><a href="#opplysninger">Kundeopplysninger</a><a href="#abonnement">Betaling og gratismåneder</a><a href="#tilgang">Tilgang</a></div>
 <section class="grid two">
+<article class="panel">
+    <h2>Demomiljø og porteføljestatistikk</h2>
+    <p>Merk test- og demokunder som ikke skal telle i Jovia Digital. Abonnement og innlogging endres ikke.</p>
+    <form class="stack" method="post" action="{{ route('superadmin.customer.portfolio-demo', $organization) }}">
+        @csrf
+        @method('PUT')
+        <input type="hidden" name="excluded" value="0">
+        <label class="check">
+            <input type="checkbox" name="excluded" value="1" @checked(old('excluded', $organization->exclude_from_portfolio))>
+            Demomiljø — utelat kunden og alle tilhørende tellinger fra API-statistikken
+        </label>
+        <button class="button">Lagre statistikkvalg</button>
+    </form>
+</article>
 <article class="panel" id="opplysninger"><h2>Kundeopplysninger</h2><form class="stack" method="post" action="{{ route('superadmin.customer.update',$organization) }}">@csrf @method('PUT')
 <label>Virksomhetsnavn<input name="name" value="{{ old('name',$organization->name) }}" required maxlength="255"></label><label>Organisasjonsnummer<input name="organization_number" value="{{ old('organization_number',$organization->organization_number) }}" maxlength="32"></label><label>Kontakt-/faktura-e-post<input type="email" name="email" value="{{ old('email',$organization->email) }}" maxlength="255"></label><label>Telefon<input name="phone" value="{{ old('phone',$organization->phone) }}" maxlength="32"></label><p class="muted">Oppdaterer virksomheten i DekkPilot. Brukernes innlogging og eksisterende fakturaopplysninger hos Stripe endres ikke.</p><button class="button">Lagre kundeopplysninger</button></form></article>
 <article class="panel" id="abonnement"><h2>Betaling og abonnement</h2>@if($organization->free_access_until)<p><strong>Gratis tilgang uten Stripe:</strong> {{ $organization->free_access_until->timezone('Europe/Oslo')->format('d.m.Y H:i') }} ({{ $organization->hasFreeAccess()?'aktiv':'utløpt eller stengt' }}).</p>@endif

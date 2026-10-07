@@ -4,6 +4,11 @@ use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Controllers\Api\V1\CheckoutPaymentController;
 use Illuminate\Support\Facades\Route;
 
+// Separate read-only platform API. Existing tenant APIs remain unchanged.
+Route::get('/v1/portfolio/overview', \App\Http\Controllers\Api\V1\PortfolioController::class)
+    ->middleware(['throttle:30,1', \App\Http\Middleware\PortfolioAccess::class])
+    ->name('api.portfolio.overview');
+
 Route::prefix('v1')->group(function () {
     Route::get('/openapi.yaml', fn()=>response()->file(public_path('openapi.yaml'),['Content-Type'=>'application/yaml']))->middleware('throttle:30,1');
     Route::post('/tokens', [ApiController::class, 'token'])->middleware('throttle:5,1');

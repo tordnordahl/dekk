@@ -8,6 +8,20 @@ use Tests\TestCase;
 class SuperAdminCustomerTest extends TestCase
 {
  use RefreshDatabase;
+ public function test_demo_statistics_flag_is_superadmin_only_and_does_not_change_access():void {
+  $owner=$this->user();$org=$owner->organization;
+  $this->actingAs($owner)->put(route('superadmin.customer.portfolio-demo',$org),['excluded'=>1])->assertForbidden();
+  $this->assertFalse((bool)$org->fresh()->exclude_from_portfolio);
+  $super=$this->user(true);
+  $this->actingAs($super)->get(route('superadmin.customer',$org))->assertOk()->assertSee('Demomiljø og porteføljestatistikk');
+  $this->put(route('superadmin.customer.portfolio-demo',$org),['excluded'=>1])->assertSessionHasNoErrors();
+  $this->assertTrue((bool)$org->fresh()->exclude_from_portfolio);
+  $this->assertSame('active',$org->fresh()->subscription_status);
+  $this->assertNull($org->fresh()->suspended_at);
+  $this->assertDatabaseHas('audit_logs',['subject_id'=>$org->id,'action'=>'superadmin.customer.portfolio_demo']);
+  $this->put(route('superadmin.customer.portfolio-demo',$org),['excluded'=>0])->assertSessionHasNoErrors();
+  $this->assertFalse((bool)$org->fresh()->exclude_from_portfolio);
+ }
  private function user(bool $super=false):User {
   $org=Organization::create(['public_id'=>Str::uuid(),'name'=>'Verksted','email'=>'kontakt@example.no']);
   $branch=Branch::create(['public_id'=>Str::uuid(),'organization_id'=>$org->id,'name'=>'Hoved','code'=>'H']);

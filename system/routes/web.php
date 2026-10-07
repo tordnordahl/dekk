@@ -49,6 +49,8 @@ Route::middleware(['auth','2fa','superadmin'])->group(function () {
     Route::get('/superadmin/kunder/{organization}', [SuperAdminController::class, 'show'])->name('superadmin.customer');
     Route::put('/superadmin/kunder/{organization}', [SuperAdminController::class, 'update'])->name('superadmin.customer.update');
     Route::put('/superadmin/kunder/{organization}/tilgang', [SuperAdminController::class, 'access'])->name('superadmin.customer.access');
+    Route::put('/superadmin/kunder/{organization}/portefolje-demo', \App\Http\Controllers\PortfolioDemoController::class)
+        ->name('superadmin.customer.portfolio-demo');
     Route::get('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'index'])->name('superadmin.stripe');
     Route::put('/superadmin/stripe', [\App\Http\Controllers\SuperAdminStripeController::class, 'save'])->middleware('throttle:5,1')->name('superadmin.stripe.save');
     Route::post('/superadmin/{organization}/gratis-maned', [\App\Http\Controllers\SuperAdminStripeController::class, 'freeMonth'])->middleware('throttle:10,1')->name('superadmin.stripe.free-month');
