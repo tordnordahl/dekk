@@ -40,6 +40,32 @@ final class PortfolioApiTest extends TestCase
         $this->withToken(str_repeat('a', 64))->getJson('/api/v1/portfolio/overview')->assertUnauthorized();
     }
 
+    public function test_trial_dates_and_discount_months_are_exposed_without_guessing_stripe_trial_end(): void
+    {
+        $this->travelTo(now()->startOfDay());
+        $end = now()->addMonthsNoOverflow(2);
+        Organization::create([
+            'public_id' => Str::uuid(), 'name' => 'Free',
+            'free_access_started_at' => now(), 'free_access_until' => $end,
+            'stripe_free_month_count' => 2,
+        ]);
+        Organization::create([
+            'public_id' => Str::uuid(), 'name' => 'Discount', 'subscription_status' => 'active',
+            'stripe_free_month_applied_at' => now(), 'stripe_free_month_count' => 1,
+        ]);
+        Organization::create([
+            'public_id' => Str::uuid(), 'name' => 'Unknown trial', 'subscription_status' => 'trialing',
+        ]);
+        $response = $this->withToken($this->token)->getJson('/api/v1/portfolio/overview')->assertOk();
+        $plain = sodium_crypto_box_seal_open(base64_decode($response->json('ciphertext')), $this->keypair);
+        $rows = json_decode($plain, true)['customers'];
+        $this->assertSame($end->toIso8601String(), $rows[0]['trial_ends_at']);
+        $this->assertSame(2, $rows[0]['trial_months_granted']);
+        $this->assertSame('trialing', $rows[1]['status']);
+        $this->assertSame('discount_estimate', $rows[1]['trial_date_source']);
+        $this->assertNull($rows[2]['trial_ends_at']);
+    }
+
     public function test_response_is_encrypted_allowlisted_and_read_only(): void
     {
         Organization::create([

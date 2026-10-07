@@ -79,6 +79,15 @@ blir `unknown`, ikke automatisk «avsluttet» eller «betalende».
 
 ## Sikkerhet og drift
 
+Gratis-/testperioden følger `trial_started_at`, `trial_ends_at` og
+`trial_months_granted`. Lokal gratis tilgang bruker `free_access_until` som
+sluttdato. En brukt Stripe-gratisrabatt estimeres fra anvendelsestidspunktet
+pluss tildelte måneder (`trial_date_source=discount_estimate`); dette er ikke
+Stripe-fakturadato og kan avvike. Stripe `trialing` uten lokal kjent sluttdato
+returnerer null, ikke en gjettet dato fra ordinær abonnementsperiode.
+Oppsigelse ved periodeslutt følger `cancel_at_period_end` og
+`subscription_ends_at`. Ingen eksisterende betalings- eller tilgangslogikk endres.
+
 Dedikert lesetoken: eksisterende brukertokens og superadminøkter gir ikke tilgang.
 Serveren lagrer kun tokenhash og offentlig krypteringsnøkkel. HTTPS autentiserer
 serveren og beskytter forespørselen; sealed-box krypterer selve svaret, men er

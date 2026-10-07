@@ -29,16 +29,25 @@ final class PortfolioController extends Controller
         $organizations = $included()->select([
             'id', 'public_id', 'name', 'created_at', 'subscription_status',
             'subscription_ends_at', 'billing_model', 'stripe_subscription_id',
-            'free_access_until', 'suspended_at',
+            'free_access_until', 'free_access_started_at', 'suspended_at',
+            'stripe_free_month_count', 'stripe_free_month_applied_at', 'stripe_cancel_at_period_end',
         ])->withCount(['customers', 'vehicles', 'tireSets', 'branches', 'users', 'bookings'])
             ->withCount(['tireSets as stored_sets_count' => fn ($query) => $query->where('status', 'stored')])
             ->withSum(['tireSets as tire_units_sum' => fn ($query) => $query->where('kind', '!=', 'rims')], 'quantity')
             ->orderBy('id')->paginate($validated['per_page'] ?? 100);
 
         $customers = $organizations->getCollection()->map(static function (Organization $organization): array {
+            $trialEnd = $organization->free_access_until;
+            $trialSource = $trialEnd ? 'free_access_until' : null;
+            if (! $trialEnd && $organization->stripe_free_month_applied_at && $organization->stripe_free_month_count > 0) {
+                $trialEnd = $organization->stripe_free_month_applied_at->copy()
+                    ->addMonthsNoOverflow((int) $organization->stripe_free_month_count);
+                $trialSource = 'discount_estimate';
+            }
             $status = match (true) {
                 (bool) $organization->suspended_at => 'suspended',
                 $organization->hasFreeAccess() => 'trialing',
+                $trialEnd?->isFuture() && $organization->subscription_status === 'active' => 'trialing',
                 $organization->subscription_status === 'trialing' => 'trialing',
                 in_array($organization->subscription_status, ['canceled', 'ended'], true) => 'canceled',
                 $organization->subscription_status === 'active'
@@ -55,6 +64,13 @@ final class PortfolioController extends Controller
                 'onboarded_at' => $organization->created_at?->toDateString(),
                 'onboarding_date_source' => 'registration',
                 'monthly_price_minor' => 24900,
+                'trial_started_at' => $organization->free_access_started_at?->toIso8601String()
+                    ?? $organization->stripe_free_month_applied_at?->toIso8601String(),
+                'trial_ends_at' => $trialEnd?->toIso8601String(),
+                'trial_months_granted' => (int) $organization->stripe_free_month_count,
+                'trial_date_source' => $trialSource,
+                'cancel_at_period_end' => (bool) $organization->stripe_cancel_at_period_end,
+                'subscription_ends_at' => $organization->subscription_ends_at?->toIso8601String(),
                 'statistics' => [
                     'end_customers' => (int) $organization->customers_count,
                     'vehicles' => (int) $organization->vehicles_count,
