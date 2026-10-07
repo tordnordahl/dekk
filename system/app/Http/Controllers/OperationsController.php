@@ -207,6 +207,33 @@ class OperationsController extends Controller
         return back()->with('success','Kundeopplysningene er oppdatert.');
     }
 
+    public function editVehicle(Request $request, Vehicle $vehicle): View
+    {
+        abort_unless($vehicle->organization_id === $request->user()->organization_id, 404);
+        return view('vehicles.edit', compact('vehicle'));
+    }
+
+    public function updateVehicle(Request $request, Vehicle $vehicle): RedirectResponse
+    {
+        abort_unless($vehicle->organization_id === $request->user()->organization_id, 404);
+        $request->merge(['registration_number' => strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $request->input('registration_number')))]);
+        $data = $request->validate([
+            'registration_number' => ['required', 'string', 'alpha_num', 'max:20', Rule::unique('vehicles')->where('organization_id', $vehicle->organization_id)->ignore($vehicle->id)],
+            'make' => ['nullable', 'string', 'max:100'],
+            'model' => ['nullable', 'string', 'max:100'],
+            'model_year' => ['nullable', 'integer', 'between:1900,2100'],
+            'mileage' => ['nullable', 'integer', 'between:0,4294967295'],
+            'vin' => ['nullable', 'string', 'max:32'],
+            'recommended_tire_size' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:4000'],
+        ], ['registration_number.unique' => 'Registreringsnummeret er allerede registrert på en annen bil hos dere.']);
+        DB::transaction(function () use ($vehicle, $data, $request) {
+            $vehicle->update($data);
+            DB::table('audit_logs')->insert(['organization_id'=>$vehicle->organization_id, 'user_id'=>$request->user()->id, 'action'=>'vehicle.updated', 'subject_type'=>Vehicle::class, 'subject_id'=>$vehicle->id, 'ip_address'=>$request->ip(), 'created_at'=>now()]);
+        });
+        return redirect()->route('vehicles.history', $vehicle)->with('success', 'Bilopplysningene er oppdatert. Hjulsett og historikk er bevart.');
+    }
+
     public function storeVehicle(Request $request, Customer $customer): RedirectResponse
     {
         abort_unless($customer->organization_id === $request->user()->organization_id, 404);

@@ -1,4 +1,7 @@
 <x-layouts.app title="{{ $vehicle->registration_number }} · Bilhistorikk" heading="{{ $vehicle->registration_number }}">
+@if(in_array(auth()->user()->role,['owner','admin','manager','customer_service'],true))
+<p><a class="button ghost" href="{{ route('vehicles.edit',$vehicle) }}">Rediger bil</a></p>
+@endif
 @include('vehicles.contact')
 <div class="admin-subnav"><a href="{{ route('customers.show',$vehicle->customer) }}">← {{ $vehicle->customer->name }}</a><a href="#ownership">Eiere</a><a href="#work">Arbeid</a><a href="#hotel">Dekkhotell</a></div>
 <section class="panel"><div class="panel-head"><div><p class="eyebrow">KJØRETØYKORT</p><h2>{{ trim($vehicle->make.' '.$vehicle->model) ?: 'Kjøretøy' }}</h2><p>Hele historikken følger bilen internt. Kundeportalen avgrenser opplysninger etter kundens eierperiode.</p></div><span class="tag">Nå: {{ $vehicle->customer->name }}</span></div></section>

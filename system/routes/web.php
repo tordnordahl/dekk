@@ -132,6 +132,8 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
     Route::delete('/kunder/{customer}', [OperationsController::class, 'destroyCustomer'])->name('customers.destroy');
     Route::get('/kunder/{customer}/dataeksport', [OperationsController::class, 'exportCustomer'])->name('customers.export');
     Route::post('/kunder/{customer}/kjoretoy', [OperationsController::class, 'storeVehicle'])->name('vehicles.store');
+    Route::get('/kjoretoy/{vehicle}/rediger', [OperationsController::class, 'editVehicle'])->middleware('role:owner,admin,manager,customer_service')->name('vehicles.edit');
+    Route::put('/kjoretoy/{vehicle}', [OperationsController::class, 'updateVehicle'])->middleware('role:owner,admin,manager,customer_service')->name('vehicles.update');
     Route::get('/kjoretoy/{vehicle}/historikk', [OperationsController::class, 'vehicleHistory'])->name('vehicles.history');
     Route::put('/kunder/{customer}/kjoretoy/{vehicle}/flytt', [OperationsController::class, 'transferVehicle'])->name('vehicles.transfer');
     Route::delete('/kunder/{customer}/kjoretoy/{vehicle}', [OperationsController::class, 'archiveVehicle'])->name('vehicles.archive');

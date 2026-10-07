@@ -21,6 +21,48 @@ class HotelWorkflowTest extends TestCase {
     }
 
 
+    public function test_vehicle_details_can_be_corrected_without_changing_owner_or_history(): void {
+        extract($this->fixture());
+        $agreement = $vehicle->hotelAgreements()->firstOrFail();
+        $this->actingAs($user)->get(route('vehicles.edit',$vehicle))->assertOk()->assertSee('Lagre bilopplysninger');
+        $this->get(route('customers.show',$customer))->assertOk()->assertSee(route('vehicles.edit',$vehicle),false);
+        $this->get(route('vehicles.history',$vehicle))->assertOk()->assertSee(route('vehicles.edit',$vehicle),false);
+        $this->put(route('vehicles.update',$vehicle),['registration_number'=>'xy 54321','make'=>'Volvo','model'=>'V70','model_year'=>2015,'mileage'=>123456,'vin'=>'VIN123','recommended_tire_size'=>'205/55R16','notes'=>'Korrigert','customer_id'=>99999,'organization_id'=>99999])->assertSessionHasNoErrors()->assertRedirect(route('vehicles.history',$vehicle));
+        $vehicle->refresh();
+        $this->assertSame('XY54321',$vehicle->registration_number);
+        $this->assertSame('Volvo',$vehicle->make);
+        $this->assertSame($customer->id,$vehicle->customer_id);
+        $this->assertSame($org->id,$vehicle->organization_id);
+        $this->assertSame($vehicle->id,$set->fresh()->vehicle_id);
+        $this->assertSame('active',$agreement->fresh()->status);
+        $this->assertDatabaseHas('audit_logs',['action'=>'vehicle.updated','subject_id'=>$vehicle->id]);
+        $copy=$vehicle->replicate();$copy->public_id=Str::uuid();$copy->registration_number='ZZ99999';$copy->save();
+        $this->from(route('vehicles.edit',$vehicle))->put(route('vehicles.update',$vehicle),['registration_number'=>'zz 99999'])->assertSessionHasErrors('registration_number');
+        $this->assertSame('XY54321',$vehicle->fresh()->registration_number);
+        $this->put(route('vehicles.update',$vehicle),['registration_number'=>'XY54321','model_year'=>1800,'mileage'=>-1])->assertSessionHasErrors(['model_year','mileage']);
+        $other=$this->fixture();
+        $this->get(route('vehicles.edit',$other['vehicle']))->assertNotFound();
+        $this->put(route('vehicles.update',$other['vehicle']),['registration_number'=>'AB99999'])->assertNotFound();
+        $user->update(['role'=>'technician']);
+        $this->get(route('vehicles.edit',$vehicle))->assertForbidden();
+        $this->put(route('vehicles.update',$vehicle),['registration_number'=>'AB99999'])->assertForbidden();
+    }
+
+    public function test_agreement_can_be_ended_after_tires_are_removed_and_no_longer_renews(): void {
+        extract($this->fixture());
+        $agreement=$vehicle->hotelAgreements()->firstOrFail();
+        $set->delete();
+        $agreement->update(['renews_on'=>today()->subDay()]);
+        $this->actingAs($user)->get(route('hotel-agreements.index'))->assertOk()->assertSee('Lagre status')->assertDontSee('onchange=',false);
+        $this->from(route('hotel-agreements.index'))->patch(route('hotel-agreements.status',$agreement),['status'=>'ended'])->assertSessionHasNoErrors()->assertRedirect(route('hotel-agreements.index'));
+        $this->assertSame('ended',$agreement->fresh()->status);
+        $this->assertTrue($agreement->fresh()->ends_on->isToday());
+        $this->assertSame(0,app(\App\Services\HotelChargeService::class)->generate($org->id));
+        $this->get(route('hotel-agreements.index',['status'=>'ended']))->assertOk()->assertSee('value="ended" selected',false);
+        $other=$this->fixture();
+        $this->patch(route('hotel-agreements.status',$other['vehicle']->hotelAgreements()->firstOrFail()),['status'=>'ended'])->assertNotFound();
+    }
+
     private function incoming(TireSet $out): TireSet {
         $set=$out->replicate();$set->public_id=Str::uuid();$set->code='HJ-'.Str::upper(Str::random(8));$set->status='delivered';$set->delivered_at=now();$set->season='summer';$set->save();return $set;
     }
