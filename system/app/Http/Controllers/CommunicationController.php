@@ -48,7 +48,7 @@ class CommunicationController extends Controller
     }
 
     public function previewDraft(Request $request): Response { $data=$request->validate(['subject'=>['nullable','string','max:200'],'body'=>['required','string','max:5000']]); return $this->renderEmail($data['subject'] ?: 'Melding fra DekkPilot', $data['body']); }
-    public function previewMessage(Request $request, OutboundMessage $message): Response { abort_unless($message->organization_id === $request->user()->organization_id && $message->channel === 'email', 404); return $this->renderEmail($message->subject ?: 'Melding fra DekkPilot', $message->body); }
+    public function previewMessage(Request $request, OutboundMessage $message): Response { abort_unless($message->organization_id === $request->user()->organization_id && $message->channel === 'email', 404); return response(app(\App\Services\CommunicationService::class)->mailable($message)->render(), 200, ['Content-Type'=>'text/html; charset=UTF-8']); }
     private function renderEmail(string $subject, string $body): Response { return response((new OutboundMail($subject, $body))->render(), 200, ['Content-Type' => 'text/html; charset=UTF-8']); }
 
     public function saveTwilio(Request $request): RedirectResponse

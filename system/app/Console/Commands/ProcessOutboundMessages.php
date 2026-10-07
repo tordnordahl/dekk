@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Mail\OutboundMail;
 use App\Models\OutboundMessage;
 use App\Services\TestDataGuard;
 use App\Services\TwilioSmsService;
@@ -32,9 +31,20 @@ class ProcessOutboundMessages extends Command
                 $reference = null;
                 if ($message->channel === 'email') {
                     $configured = $mailConfiguration->configure($message->organization_id);
-                    Mail::to($message->recipient)->send(new OutboundMail($message->subject ?? 'Melding fra DekkPilot', $message->body));
+                    if (($configured['server']['transport'] ?? 'log') === 'log') throw new \RuntimeException('E-posttransport er ikke aktivert.');
+                    $quoteId = data_get($message->provider_metadata, 'quote_id');
+                    if ($quoteId) {
+                        $quote = \App\Models\Quote::where('organization_id', $message->organization_id)->find($quoteId);
+                        if (!$quote || $quote->expires_at->isPast() || $quote->status !== 'draft') {
+                            $message->update(['status'=>'cancelled', 'last_error'=>'Tilbudet er utløpt eller allerede behandlet.']);
+                            continue;
+                        }
+                    }
+                    $sent = Mail::to($message->recipient)->send(app(\App\Services\CommunicationService::class)->mailable($message));
+                    if ($sent === null && !app()->runningUnitTests()) throw new \RuntimeException('E-posten ble stoppet før utsending.');
+                    if ($quoteId) \App\Models\Quote::whereKey($quoteId)->where('status','draft')->update(['status'=>'sent','sent_at'=>now()]);
                     $rate = max(1, (int) ($configured['server']['messages_per_minute'] ?? 60));
-                    if ($rate <= 60) usleep((int) ceil(60_000_000 / $rate));
+                    if (!app()->runningUnitTests()) usleep((int) max(2_000_000, ceil(60_000_000 / $rate)));
                 } else {
                     $reference = $sms->send($message->organization_id, $message->recipient, $message->body, $message);
                     DB::table('usage_events')->updateOrInsert(
@@ -43,10 +53,12 @@ class ProcessOutboundMessages extends Command
                     );
                 }
                 $message->update(['status'=>'sent','sent_at'=>now(),'provider_reference'=>$reference,'last_error'=>null]);
+            } catch (\App\Exceptions\MailRateLimited $exception) {
+                $message->update(['status'=>'queued','attempts'=>max(0,$message->attempts-1),'scheduled_at'=>now()->addSeconds($exception->retryAfter),'last_error'=>$exception->getMessage()]);
             } catch (Throwable $exception) {
                 report($exception);
                 $failed = $message->attempts >= 3;
-                $message->update(['status'=>$failed?'failed':'queued','failed_at'=>$failed?now():null,'scheduled_at'=>now()->addMinutes(5),'last_error'=>mb_substr($exception->getMessage(),0,1000)]);
+                $message->update(['status'=>$failed?'failed':'queued','failed_at'=>$failed?now():null,'scheduled_at'=>now()->addMinutes(10),'last_error'=>mb_substr($exception->getMessage(),0,1000)]);
             }
         }
         $this->info($items->count().' meldinger behandlet.');

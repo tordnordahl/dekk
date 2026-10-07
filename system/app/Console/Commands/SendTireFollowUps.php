@@ -1,14 +1,12 @@
 <?php
 namespace App\Console\Commands;
 
-use App\Mail\QuoteMail;
 use App\Models\Quote;
 use App\Models\ServiceSetting;
 use App\Models\TireProduct;
 use App\Models\TireSet;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class SendTireFollowUps extends Command
@@ -31,10 +29,10 @@ class SendTireFollowUps extends Command
                 $plain=Str::random(64);$quantity=max(1,$set->quantity);$total=$product->price_cents*$quantity;
                 $days=ServiceSetting::where('branch_id',$customer->branch_id)->value('quote_expiry_days')??14;
                 $quote=DB::transaction(function()use($set,$customer,$product,$plain,$quantity,$total,$days){$quote=Quote::create(['public_id'=>(string)Str::uuid(),'organization_id'=>$set->organization_id,'branch_id'=>$customer->branch_id,'customer_id'=>$customer->id,'vehicle_id'=>$set->vehicle_id,'reference'=>'T-'.now()->format('ymd').'-'.strtoupper(Str::random(5)),'access_token_hash'=>hash('sha256',$plain),'subtotal_cents'=>$total,'vat_cents'=>0,'total_cents'=>$total,'message'=>'Vi anbefaler utskifting basert på registrert mønsterdybde eller dekkenes alder.','expires_at'=>now()->addDays($days)]);$quote->items()->create(['tire_product_id'=>$product->id,'description'=>"{$product->brand} {$product->model} {$product->size}",'quantity'=>$quantity,'unit_price_cents'=>$product->price_cents,'line_total_cents'=>$total]);return $quote->load(['customer','vehicle','items']);});
-                try{app(\App\Services\MailConfigurationService::class)->configure($set->organization_id);Mail::to($customer->email)->send(new QuoteMail($quote,route('quote.public.show',$plain)));$quote->update(['status'=>'sent','sent_at'=>now()]);$sent++;}catch(\Throwable $e){report($e);$skipped++;}
+                try{app(\App\Services\CommunicationService::class)->queueQuote($quote,$plain);$sent++;}catch(\Throwable $e){report($e);$skipped++;}
             }
         });
-        $this->info("Sendt/klare: {$sent}. Hoppet over: {$skipped}.");
+        $this->info("Lagt i kø/klare: {$sent}. Hoppet over: {$skipped}.");
         return self::SUCCESS;
     }
 }

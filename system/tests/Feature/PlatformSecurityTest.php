@@ -132,6 +132,13 @@ class PlatformSecurityTest extends TestCase
         $product = TireProduct::create(['public_id'=>Str::uuid(),'organization_id'=>$user->organization_id,'sku'=>'TEST-1','brand'=>'Nokian','model'=>'Test','size'=>'205/55 R16','season'=>'winter','price_cents'=>199900,'stock_quantity'=>8]);
 
         $this->actingAs($user)->post('/tilbud',['customer_id'=>$customer->id,'vehicle_id'=>$vehicle->id,'tire_product_id'=>$product->id,'quantity'=>4])->assertRedirect();
+        Mail::assertNothingSent();
+        $queued = OutboundMessage::firstOrFail();
+        $this->assertSame('queued', $queued->status);
+        $this->assertSame('draft', \App\Models\Quote::first()->status);
+        config(['mail.default'=>'smtp']);
+        $this->artisan('communications:process')->assertExitCode(0);
+        $this->assertSame('sent', $queued->fresh()->status);
         Mail::assertSent(QuoteMail::class);
         $quote = \App\Models\Quote::first();
         $this->assertSame(64, strlen($quote->access_token_hash));

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\OutboundMail;
 use App\Models\IntegrationSetting;
 use App\Models\PlatformSetting;
 use App\Services\MailConfigurationService;
@@ -11,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -43,6 +41,7 @@ class SystemSettingsController extends Controller
             'from_address' => ['required','email','max:255'], 'from_name' => ['required','string','max:255'],
             'messages_per_minute' => ['required','integer','min:1','max:600'],
         ]);
+        if ($data['transport']==='smtp' && strtolower(trim($data['host'] ?? ''))==='smtp.domeneshop.no') return back()->withErrors(['host'=>'Domeneshop tillater ikke automatiske utsendinger via smtp.domeneshop.no. Velg lokal servermail på webhotellet.']);
         $existing = app(MailConfigurationService::class)->serverSettings();
         if ($data['transport'] === 'native') {
             $data = array_merge($data, ['host'=>null,'port'=>null,'security'=>'none','username'=>null,'password'=>null,'messages_per_minute'=>60]);
@@ -92,13 +91,12 @@ class SystemSettingsController extends Controller
         $data = $request->validate(['recipient'=>['required','email','max:255']]);
         abort_if(session('demo_read_only'), 403, 'Demo kan ikke sende e-post.');
         try {
-            $configuration->configure($request->user()->organization_id);
-            Mail::to($data['recipient'])->send(new OutboundMail('Test fra DekkPilot', "Dette er en test av e-postoppsettet.\n\nSendt ".now()->format('d.m.Y H:i').'.'));
-            $this->audit($request, 'mail.test_sent', ['recipient'=>$data['recipient']]);
-            return back()->with('success', 'Test-e-posten er sendt. Kontroller innboks og søppelpost.');
+            app(\App\Services\CommunicationService::class)->queue($request->user()->organization_id, null, 'email', $data['recipient'], 'Test fra DekkPilot', 'Dette er en test av virksomhetens e-postavsender.', 'transactional', null, $request->user()->id);
+            $this->audit($request, 'mail.test_queued', ['recipient'=>$data['recipient']]);
+            return back()->with('success', 'Test-e-posten er lagt i kø. Følg status under Kommunikasjon.');
         } catch (Throwable $e) {
             report($e);
-            return back()->withErrors(['mail'=>'Testen feilet: '.Str::limit($e->getMessage(), 350)]);
+            return back()->withErrors(['mail'=>'Testen kunne ikke legges i kø. Prøv igjen eller kontakt oss.']);
         }
     }
 
