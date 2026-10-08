@@ -87,6 +87,6 @@ class SaasSubscriptionTest extends TestCase
 
     private function fakeBrreg(string $number, string $name): void
     {
-        Http::fake(["data.brreg.no/enhetsregisteret/api/enheter/{$number}" => Http::response(['organisasjonsnummer' => $number, 'navn' => $name, 'organisasjonsform' => ['kode' => 'AS', 'beskrivelse' => 'Aksjeselskap'], 'forretningsadresse' => ['adresse' => ['Testveien 1'], 'postnummer' => '0001', 'poststed' => 'OSLO'], 'registreringsdatoEnhetsregisteret' => '2020-01-01', 'erSlettet' => false])]);
+        Http::fake(["data.brreg.no/enhetsregisteret/api/enheter/{$number}" => Http::response(['organisasjonsnummer' => $number, 'navn' => $name, 'organisasjonsform' => ['kode' => 'AS', 'beskrivelse' => 'Aksjeselskap'], 'forretningsadresse' => ['adresse' => ['Testveien 1'], 'postnummer' => '0001', 'poststed' => 'OSLO'], 'registreringsdatoEnhetsregisteret' => '2020-01-01', 'erSlettet' => false]), 'data.brreg.no/*'=>Http::response([],503)]);
     }
 }

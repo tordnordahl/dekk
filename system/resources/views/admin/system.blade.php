@@ -1,4 +1,5 @@
 <x-layouts.app title="E-postoppsett · DekkPilot" heading="E-postoppsett">
+<div class="admin-subnav"><a href="{{ route('admin') }}">← Administrasjon</a><a href="{{ route('admin.communications') }}">Meldinger og SMS-oppsett</a></div>
 <div class="admin-subnav"><a href="{{ route('admin') }}">← Admin</a><a href="#avsender">Avsenderadresse</a>@if(auth()->user()->is_super_admin)<a href="{{ route('superadmin.server-mail') }}">Servermail</a><a href="#backup">Backup</a>@endif</div>
 
 <section class="panel" id="avsender"><div class="panel-head"><div><p class="eyebrow">VIRKSOMHETENS E-POST</p><h2>Avsenderadresse</h2></div></div><p class="muted">Svar fra kundene sendes til denne e-postadressen.</p><form method="post" action="{{ route('admin.system.tenant-mail') }}" class="stack">@csrf @method('PUT')<label>E-post dere sender fra<input type="email" name="from_address" value="{{ old('from_address',$tenantMail['from_address']??auth()->user()->organization->email??'') }}" required placeholder="kundeservice@firma.no"><small>Avsendernavnet hentes automatisk fra virksomhetens navn.</small></label><button class="button">Lagre avsenderadresse</button></form></section>

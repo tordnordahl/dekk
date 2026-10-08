@@ -14,7 +14,7 @@ class SuperAdminController extends Controller
   $data=$request->validate(['name'=>['required','string','max:255'],'organization_number'=>['nullable','string','max:32',\Illuminate\Validation\Rule::unique('organizations')->ignore($organization->id)],'email'=>['nullable','email','max:255'],'phone'=>['nullable','string','max:32']]);
   if (($data['organization_number']??null)!==$organization->organization_number && ($organization->organization_number==='DEMO-DEKKPILOT'||($data['organization_number']??null)==='DEMO-DEKKPILOT')) return back()->withErrors(['organization_number'=>'Demoens organisasjonsnummer er reservert.']);
   DB::transaction(function() use($request,$organization,$data){
-   if (($data['organization_number']??null)!==$organization->organization_number) $data+=['brreg_verified_at'=>null,'brreg_data'=>null];
+   if (($data['organization_number']??null)!==$organization->organization_number) $data+=['brreg_verified_at'=>null,'brreg_data'=>null,'brreg_private_data'=>null];
    $organization->update($data);$this->audit($request,$organization,'superadmin.customer.updated');
   });
   return back()->with('success','Kundeopplysningene er lagret i DekkPilot. Fakturaopplysninger hos Stripe administreres separat.');

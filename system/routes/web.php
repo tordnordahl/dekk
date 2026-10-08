@@ -199,6 +199,9 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
         Route::put('/etiketter', [\App\Http\Controllers\HotelFeaturesController::class, 'saveLabels'])->name('admin.labels.save');
         Route::get('/etiketter/prove', [\App\Http\Controllers\HotelFeaturesController::class, 'previewLabels'])->name('admin.labels.preview');
         Route::delete('/lageroppsett/plasser/{location}', [\App\Http\Controllers\HotelFeaturesController::class, 'archiveRack'])->name('admin.warehouse.archive');
+        Route::get('/virksomhet', [\App\Http\Controllers\OrganizationProfileController::class, 'show'])->name('admin.organization');
+        Route::put('/virksomhet', [\App\Http\Controllers\OrganizationProfileController::class, 'update'])->name('admin.organization.update');
+        Route::post('/virksomhet/brreg', [\App\Http\Controllers\OrganizationProfileController::class, 'refresh'])->middleware('throttle:5,10')->name('admin.organization.brreg');
         Route::get('/oppsett', [AdminController::class, 'index'])->name('admin.settings');
         Route::get('/system-og-backup', [SystemSettingsController::class, 'index'])->name('admin.system');
         Route::put('/system-og-backup/virksomhetsavsender', [SystemSettingsController::class, 'saveTenantMail'])->name('admin.system.tenant-mail');

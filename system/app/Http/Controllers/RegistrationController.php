@@ -63,7 +63,9 @@ class RegistrationController extends Controller
             throw ValidationException::withMessages(['organization_number' => 'Virksomheten har allerede en konto. Logg inn eller kontakt oss.']);
         }
 
-        $user = DB::transaction(function () use ($data, $verified, $request, $defaultServices) {
+        $privateDetails = $brreg->privateDetails($verified['organization_number']);
+        $profile = $brreg->profile($verified);
+        $user = DB::transaction(function () use ($data, $verified, $privateDetails, $profile, $request, $defaultServices) {
             $organization = Organization::create([
                 'public_id' => (string) Str::uuid(),
                 'name' => $verified['name'],
@@ -74,6 +76,9 @@ class RegistrationController extends Controller
                 'subscription_status' => 'incomplete',
                 'brreg_verified_at' => now(),
                 'brreg_data' => $verified,
+                'profile' => $profile,
+                'brreg_private_data' => $privateDetails,
+                'phone' => $verified['phone']??null,
                 'billing_model' => 'stripe',
             ]);
             $branch = Branch::create(['public_id' => (string) Str::uuid(), 'organization_id' => $organization->id, 'name' => 'Hovedavdeling', 'code' => 'HOVED', 'active' => true]);

@@ -1,4 +1,5 @@
 <x-layouts.app title="Meldingskø · DekkPilot" heading="Kommunikasjon">
+<div class="admin-subnav"><a href="{{ route('admin') }}">← Administrasjon</a><a href="{{ route('admin.system') }}">E-postavsender og leveringstest</a></div>
 <link rel="stylesheet" href="{{ asset('sms-settings.css') }}?v=20260810-1">
 <div class="usage-note"><strong>SMS krever egen Twilio-konto og faktureres etter bruk</strong><span>Virksomheten oppretter og betaler Twilio-kontoen selv. DekkPilot lagrer tilkoblingen kryptert, men tar ikke betalt for eller leverer selve SMS-trafikken. E-post er inkludert.</span></div>
 <section class="stats"><article><span class="stat-icon blue">…</span><div><small>I KØ</small><strong>{{ $stats['queued'] ?? 0 }}</strong></div></article><article><span class="stat-icon green">✓</span><div><small>SENDT</small><strong>{{ $stats['sent'] ?? 0 }}</strong></div></article><article><span class="stat-icon orange">!</span><div><small>FEILET</small><strong>{{ $stats['failed'] ?? 0 }}</strong></div></article><article><span class="stat-icon violet">SMS</span><div><small>TWILIO</small><strong>{{ $twilioConfigured ? 'På':'Av' }}</strong></div></article></section>
