@@ -76,15 +76,30 @@ class AdminController extends Controller
         return redirect()->route('admin.portals.customer-preview', $vehicle->customer_id);
     }
 
-    public function index(Request $request, DefaultServiceCatalog $defaultServices): View
+    public function index(Request $request, DefaultServiceCatalog $defaultServices): View|\Illuminate\Http\JsonResponse
     {
         $org = $request->user()->organization_id;
         $defaultServices->seed($org);
+        $search=$request->query('product_q','');
+        $search=is_string($search)?mb_substr(trim($search),0,100):'';
+        $products=TireProduct::where('organization_id',$org)
+            ->when($search!=='',fn($q)=>$q->where(function($q) use($search) {
+                foreach(array_slice(preg_split('/\s+/u',$search),0,8) as $term) {
+                    $q->where(function($match) use($term) {
+                        foreach(['sku','brand','model','size'] as $field) $match->orWhere($field,'like','%'.$term.'%');
+                        $match->orWhereRaw("REPLACE(LOWER(size), ' ', '') LIKE ?", ['%'.mb_strtolower($term).'%']);
+                    });
+                }
+            }))->orderByDesc('active')->latest()->paginate(20,['*'],'products_page')->withQueryString();
+        if($request->expectsJson() && $request->query('tab')==='products') {
+            return response()->json(['html'=>view('admin.settings.product-results',compact('products'))->render()]);
+        }
+
         return view('admin.index', [
             'employees' => User::where('is_super_admin',false)->where('organization_id', $org)->orderBy('name')->get(),
             'workBays' => WorkBay::where('organization_id', $org)->orderBy('code')->get(),
             'settings' => ServiceSetting::firstOrCreate(['branch_id' => $request->user()->branch_id], ['organization_id' => $org]),
-            'products' => TireProduct::where('organization_id', $org)->latest()->limit(20)->get(),
+            'products' => $products,
             'vegvesenConfigured' => IntegrationSetting::where('organization_id', $org)->where('provider', 'vegvesen')->where('active', true)->exists() || filled(config('services.vegvesen.api_key')),
             'services' => ServiceProduct::where('organization_id', $org)->orderBy('category')->orderBy('name')->get(),
             'counts' => [

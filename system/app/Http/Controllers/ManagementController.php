@@ -105,6 +105,34 @@ class ManagementController extends Controller
         return back()->with('success','Dekket er lagt til i produktkatalogen.');
     }
 
+    public function updateTireProduct(Request $request, TireProduct $product): RedirectResponse
+    {
+        $org=$request->user()->organization_id;
+        abort_unless($product->organization_id===$org,404);
+        $bag='product'.$product->id;
+        $data=$request->validateWithBag($bag,[
+            'sku'=>['required','string','max:64',Rule::unique('tire_products')->where('organization_id',$org)->ignore($product->id)],
+            'brand'=>['required','string','max:100'],'model'=>['required','string','max:100'],'size'=>['required','string','max:64'],
+            'season'=>['required','in:summer,winter,all_season'],'studded'=>['nullable','boolean'],
+            'price'=>['required','numeric','between:0,100000'],'cost'=>['nullable','numeric','between:0,100000'],
+            'stock_quantity'=>['required','integer','between:0,100000'],'active'=>['required','boolean'],
+        ]);
+        DB::transaction(function() use($request,$product,$data,$bag,$org) {
+            $locked=TireProduct::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            $reserved=app(\App\Services\InventoryAvailabilityService::class)->reserved($locked->id);
+            if($data['stock_quantity']<$reserved || (!$data['active'] && $reserved>0)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['stock_quantity'=>'Varen har '.$reserved.' reserverte dekk. Lagerantallet kan ikke være lavere, og varen kan ikke tas ut før reservasjonene er avsluttet.'])->errorBag($bag);
+            }
+            $before=$locked->only(['sku','brand','model','size','season','stock_quantity','active','price_cents','cost_cents','studded']);
+            $locked->update(['sku'=>$data['sku'],'brand'=>$data['brand'],'model'=>$data['model'],'size'=>$data['size'],'season'=>$data['season'],
+                'studded'=>$data['season']==='winter' && $request->boolean('studded'),'price_cents'=>(int)round($data['price']*100),
+                'cost_cents'=>isset($data['cost'])?(int)round($data['cost']*100):null,'stock_quantity'=>$data['stock_quantity'],'active'=>(bool)$data['active']]);
+            DB::table('audit_logs')->insert(['organization_id'=>$org,'user_id'=>$request->user()->id,'action'=>'tire_product.updated','subject_type'=>TireProduct::class,'subject_id'=>$locked->id,
+                'metadata'=>json_encode(['before'=>$before,'after'=>$locked->only(array_keys($before))]),'created_at'=>now()]);
+        });
+        return back()->with('success','Dekkvaren er oppdatert. Tidligere tilbud og ordre er bevart.');
+    }
+
     public function saveVegvesen(Request $request): RedirectResponse
     {
         $data = $request->validate(['api_key' => ['required','string','min:16','max:500']]);

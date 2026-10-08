@@ -239,6 +239,7 @@ Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tena
         Route::post('/arbeidsbukker', [ManagementController::class, 'bay'])->name('admin.bays.store');
         Route::put('/tidsinnstillinger', [ManagementController::class, 'timing'])->name('admin.timing.update');
         Route::patch('/etikettvarsler', [ManagementController::class, 'labelReminders'])->name('admin.label-reminders');
+        Route::put('/dekkprodukter/{product}', [ManagementController::class, 'updateTireProduct'])->name('admin.products.update');
         Route::post('/dekkprodukter', [ManagementController::class, 'tireProduct'])->name('admin.products.store');
         Route::get('/dekkatalog', [TireCatalogController::class, 'index'])->name('admin.tires');
         Route::post('/dekkatalog', [TireCatalogController::class, 'store'])->name('admin.tires.store');

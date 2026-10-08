@@ -24,9 +24,17 @@ class HotelFeaturesController extends Controller
     }
     public function updateSet(Request $request,TireSet $tireSet) {
         $this->owns($request,$tireSet);
-        $data=$request->validate(['hotel_notes'=>['nullable','string','max:4000'],'winter_type'=>['nullable','in:studded,unstudded']]);
-        if($tireSet->season!=='winter') $data['winter_type']=null;
-        $tireSet->update($data);$this->audit($request,'tire_set.details.updated',$tireSet);
+        $data=$request->validateWithBag('tireDetails',[
+            'manufacturer'=>['sometimes','nullable','string','max:100'], 'size'=>['sometimes','nullable','string','max:50'],
+            'season'=>['sometimes','required','in:summer,winter,all_season'], 'kind'=>['sometimes','required','in:complete_wheels,tires,rims'],
+            'dot_year'=>['sometimes','nullable','integer','between:1990,2100'],
+            'hotel_notes'=>['nullable','string','max:4000'],'winter_type'=>['nullable','in:studded,unstudded']]);
+        if(($data['season']??$tireSet->season)!=='winter') $data['winter_type']=null;
+        DB::transaction(function() use($request,$tireSet,$data) {
+            // Correcting descriptive data must not activate or create a hotel agreement.
+            $tireSet->fill($data)->saveQuietly();
+            $this->audit($request,'tire_set.details.updated',$tireSet);
+        });
         return back()->with('success','Hjulsettets opplysninger er lagret.');
     }
     public function vehicleContact(Request $request,Vehicle $vehicle) {
