@@ -81,4 +81,24 @@ class TireEditingTest extends TestCase {
         $other=$this->fixture();
         $this->actingAs($other['user'])->get(route('bookings',['booking'=>$booking->id]))->assertNotFound();
     }
+
+    public function test_brand_catalog_has_defaults_and_private_idempotent_custom_brands(): void {
+        extract($this->fixture());
+        $this->actingAs($user)->get(route('admin.settings',['tab'=>'products']))
+            ->assertOk()->assertSee('Dekkmerker')->assertSee('Continental')->assertSee('Nokian');
+        $this->post(route('admin.brands.store'),['brand_name'=>'Local Brand'])->assertSessionHasNoErrors();
+        $this->post(route('admin.brands.store'),['brand_name'=>' local brand '])->assertSessionHasNoErrors();
+        $this->post(route('admin.brands.store'),['brand_name'=>'nokian'])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('tire_brands',1);
+        $this->getJson(route('admin.settings',['tab'=>'products','product_q'=>'Nokian']))
+            ->assertOk()->assertSee('Local Brand');
+        $other=$this->fixture();
+        $this->actingAs($other['user'])->get(route('admin.settings',['tab'=>'products']))
+            ->assertOk()->assertDontSee('Local Brand')->assertSee('Continental');
+        $this->post(route('admin.brands.store'),['brand_name'=>'Local Brand'])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('tire_brands',2);
+        $this->post(route('admin.brands.store'),['brand_name'=>''])->assertSessionHasErrorsIn('tireBrands','brand_name');
+        $other['user']->update(['role'=>'warehouse']);
+        $this->post(route('admin.brands.store'),['brand_name'=>'Forbidden'])->assertForbidden();
+    }
 }

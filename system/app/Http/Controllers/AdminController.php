@@ -80,6 +80,7 @@ class AdminController extends Controller
     {
         $org = $request->user()->organization_id;
         $defaultServices->seed($org);
+        $tireBrands=app(\App\Services\TireBrandCatalog::class)->names($org);
         $search=$request->query('product_q','');
         $search=is_string($search)?mb_substr(trim($search),0,100):'';
         $products=TireProduct::where('organization_id',$org)
@@ -92,7 +93,7 @@ class AdminController extends Controller
                 }
             }))->orderByDesc('active')->latest()->paginate(20,['*'],'products_page')->withQueryString();
         if($request->expectsJson() && $request->query('tab')==='products') {
-            return response()->json(['html'=>view('admin.settings.product-results',compact('products'))->render()]);
+            return response()->json(['html'=>view('admin.settings.product-results',compact('products','tireBrands'))->render()]);
         }
 
         return view('admin.index', [
@@ -100,6 +101,7 @@ class AdminController extends Controller
             'workBays' => WorkBay::where('organization_id', $org)->orderBy('code')->get(),
             'settings' => ServiceSetting::firstOrCreate(['branch_id' => $request->user()->branch_id], ['organization_id' => $org]),
             'products' => $products,
+            'tireBrands' => $tireBrands,
             'vegvesenConfigured' => IntegrationSetting::where('organization_id', $org)->where('provider', 'vegvesen')->where('active', true)->exists() || filled(config('services.vegvesen.api_key')),
             'services' => ServiceProduct::where('organization_id', $org)->orderBy('category')->orderBy('name')->get(),
             'counts' => [

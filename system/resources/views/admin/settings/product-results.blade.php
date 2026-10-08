@@ -11,7 +11,8 @@
 <form method="post" action="{{ route('admin.products.update',$product) }}" class="stack">@csrf @method('PUT')
 <div class="fields">
 @foreach(['sku'=>['Varenummer',64],'brand'=>['Merke',100],'model'=>['Modell',100],'size'=>['Dimensjon',64]] as $field=>[$label,$max])
-<label>{{ $label }}<input name="{{ $field }}" required maxlength="{{ $max }}" value="{{ $restore?old($field):$product->$field }}"></label>
+@if($field==='brand')<label>Merke<select name="brand" required>@foreach($tireBrands as $brand)<option value="{{ $brand }}" @selected(mb_strtolower(trim($restore?old('brand',''):$product->brand))===mb_strtolower(trim($brand)))>{{ $brand }}</option>@endforeach</select></label>
+@else<label>{{ $label }}<input name="{{ $field }}" required maxlength="{{ $max }}" value="{{ $restore?old($field):$product->$field }}"></label>@endif
 @endforeach
 <label>Sesong<select name="season">@foreach(['summer'=>'Sommer','winter'=>'Vinter','all_season'=>'Helår'] as $value=>$label)<option value="{{ $value }}" @selected(($restore?old('season'):$product->season)===$value)>{{ $label }}</option>@endforeach</select></label>
 <label>Pris inkl. mva.<input name="price" type="number" min="0" max="100000" step="0.01" required value="{{ $restore?old('price'):number_format($product->price_cents/100,2,'.','') }}"></label>

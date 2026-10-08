@@ -93,6 +93,21 @@ class ManagementController extends Controller
         return back()->with('success',$request->boolean('enabled')?'Etikettutskrift er aktivert.':'Etikettutskrift og etikettpåminnelser er slått av.');
     }
 
+    public function tireBrand(Request $request): RedirectResponse
+    {
+        $data=$request->validateWithBag('tireBrands',['brand_name'=>['required','string','max:100']]);
+        $name=trim($data['brand_name']);
+        $org=$request->user()->organization_id;
+        $exists=app(\App\Services\TireBrandCatalog::class)->names($org)
+            ->contains(fn($brand)=>mb_strtolower(trim($brand))===mb_strtolower($name));
+        if (!$exists) DB::table('tire_brands')->insertOrIgnore([
+            'organization_id'=>$org,'name'=>$name,'normalized_name'=>mb_strtolower($name),
+            'created_at'=>now(),'updated_at'=>now(),
+        ]);
+        return redirect()->route('admin.settings',['tab'=>'products'])
+            ->with('success',$exists?'Dekkmerket finnes allerede i listen.':'Dekkmerket er lagt til.');
+    }
+
     public function tireProduct(Request $request): RedirectResponse
     {
         $org=$request->user()->organization_id;
