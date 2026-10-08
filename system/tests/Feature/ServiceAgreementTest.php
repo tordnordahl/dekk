@@ -32,8 +32,8 @@ class ServiceAgreementTest extends TestCase
   $this->actingAs($owner)->get('/')->assertOk();
   $agreement=$this->publish();
   $this->actingAs($owner)->get('/')->assertRedirect(route('agreement.required'));
-  $this->get('/abonnement')->assertRedirect(route('agreement.required'));
-  $this->postJson('/abonnement/checkout',['price_terms'=>1])->assertStatus(423)->assertJsonPath('redirect',route('agreement.required'));
+  $this->get('/abonnement')->assertOk();
+  $this->postJson('/kunder',[])->assertStatus(423)->assertJsonPath('redirect',route('agreement.required'));
   $this->get(route('agreement.required'))->assertOk()->assertSee('role="dialog"',false)->assertSee('fullmakt');
  }
  public function test_acceptance_records_exact_version_and_does_not_bind_other_tenants(): void {

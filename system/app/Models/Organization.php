@@ -14,7 +14,7 @@ class Organization extends Model
     {
         if ($this->suspended_at) return false;
         if ($this->hasFreeAccess()) return true;
-        if ($this->billing_model !== 'stripe') return in_array($this->subscription_status, ['active', 'trialing', 'past_due'], true);
+        if ($this->billing_model !== 'stripe') return in_array($this->subscription_status, ['active', 'trialing'], true);
         return filled($this->stripe_subscription_id)
             && in_array($this->subscription_status, ['active', 'trialing'], true)
             && $this->subscription_ends_at?->isFuture();

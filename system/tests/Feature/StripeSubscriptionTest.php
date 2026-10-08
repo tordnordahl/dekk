@@ -97,6 +97,39 @@ class StripeSubscriptionTest extends TestCase
         $this->get('/')->assertRedirect('/abonnement');
     }
 
+    public function test_portal_return_checks_payment_and_only_restores_verified_active_access(): void
+    {
+        $owner=$this->user();$org=$this->link($owner);
+        $org->update(['subscription_status'=>'past_due']);
+        $this->subscription['status']='past_due';
+        $this->actingAs($owner)->get('/abonnement')->assertOk()->assertSee('Oppdater betalingsmåte og betal');
+        $this->getJson('/')->assertStatus(402);
+        $this->post('/abonnement/portal')->assertRedirect('https://billing.stripe.com/p/session/test');
+        Http::assertSent(fn($r)=>str_ends_with($r->url(),'/billing_portal/sessions') && $r['return_url']===route('billing.portal-return') && $r['customer']===$org->stripe_customer_id);
+        $this->get(route('billing.portal-return'))->assertRedirect('/abonnement');
+        $this->get('/')->assertRedirect('/abonnement');
+        $this->subscription['status']='active';
+        $this->get(route('billing.portal-return'))->assertRedirect('/abonnement');
+        $this->assertTrue($org->fresh()->hasSubscriptionAccess());
+        $this->get('/')->assertOk();
+        $staff=$this->user('technician');
+        $this->actingAs($staff)->get(route('billing.portal-return'))->assertForbidden();
+    }
+
+    public function test_invoice_accounts_with_overdue_payment_are_also_blocked_and_free_access_is_preserved(): void
+    {
+        $owner=$this->user();$org=$owner->organization;
+        $org->update(['billing_model'=>'invoice','subscription_status'=>'past_due']);
+        $this->actingAs($owner)->get('/')->assertRedirect('/abonnement');
+        $token=Str::random(50);
+        DB::table('personal_access_tokens')->insert(['user_id'=>$owner->id,'name'=>'Test','token_hash'=>hash('sha256',$token),'abilities'=>json_encode(['*']),'created_at'=>now()]);
+        $this->withToken($token)->getJson('/api/v1/me')->assertStatus(402);
+        $org->update(['free_access_until'=>now()->addDay()]);
+        $this->assertTrue($org->fresh()->hasSubscriptionAccess());
+        $org->update(['free_access_until'=>now()->subSecond()]);
+        $this->assertFalse($org->fresh()->hasSubscriptionAccess());
+    }
+
     public function test_checkout_is_reused_and_never_opens_access_before_payment(): void
     {
         $user=$this->user();$this->gateway($user->organization);

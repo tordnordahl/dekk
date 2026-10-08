@@ -4,7 +4,7 @@
 <script defer src="{{ route('system.asset.query',['filename'=>'billing.js','v'=>'20261004-2']) }}"></script>
 @if($billingBlocked)
 <p class="eyebrow">DEKKPILOT · ABONNEMENT</p>
-<h1 id="billing-gate-title">{{ $organization->suspended_at ? 'Tilgangen er stengt' : 'Aktiver abonnementet' }}</h1>
+<h1 id="billing-gate-title">{{ $organization->suspended_at ? 'Tilgangen er stengt' : (in_array($organization->subscription_status,['past_due','unpaid'],true)?'Betaling mangler':'Aktiver abonnementet') }}</h1>
 <p>{{ $organization->name }}</p>
 @if($organization->suspended_at)
 <p>Tilgangen er stengt av DekkPilot. Kontakt systemeier for gjenåpning. Betaling åpner ikke tilgangen automatisk.</p>
@@ -15,7 +15,7 @@
 <div class="billing-price"><strong>249 kr</strong><span>per måned inkl. mva.</span></div>
 <p>Alle funksjoner og brukere er inkludert. SMS faktureres separat etter bruk. Ingen bindingstid.</p>
 @if($organization->hasUnusedFreeGrant() || $organization->stripe_free_month_applied_at)<div class="usage-note">{{ $organization->stripe_free_month_count }} gratismåned(er) {{ $organization->stripe_free_month_applied_at?'er lagt til hos Stripe':'venter på aktivering' }}. {{ $organization->hasUnusedFreeGrant() ? 'Velg gratis tilgang uten kort nedenfor, eller bruk rabatten hos Stripe.' : 'Rabatten gjelder Stripe-abonnementet.' }}</div>@endif
-@if(in_array($organization->subscription_status,['past_due','unpaid'],true))<div class="errors">En betaling mangler. Åpne Stripe for å betale eller oppdatere kortet, og hent deretter ny status.</div>@endif
+@if(in_array($organization->subscription_status,['past_due','unpaid'],true))<div class="errors">Ordinær bruk er sperret fordi betaling mangler. Eier eller administrator må oppdatere betalingsmåten og betale hos Stripe. Når du kommer tilbake, kontrollerer vi abonnementsstatus automatisk.</div>@endif
 @include('billing.actions')
 <form method="post" action="{{ route('logout') }}">@csrf<button class="button ghost">Logg ut</button></form>
 @else

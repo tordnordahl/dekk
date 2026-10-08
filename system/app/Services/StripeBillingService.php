@@ -122,7 +122,7 @@ class StripeBillingService
     public function portal(Organization $org): string
     {
         if (!$org->stripe_customer_id) throw new RuntimeException('Start abonnementet før du åpner Stripe-portalen.');
-        return $this->request('post', '/billing_portal/sessions', array_filter(['customer'=>$org->stripe_customer_id, 'return_url'=>route('billing'), 'configuration'=>$this->settings->get()['portal_configuration_id']??null]))['url'];
+        return $this->request('post', '/billing_portal/sessions', array_filter(['customer'=>$org->stripe_customer_id, 'return_url'=>route('billing.portal-return'), 'configuration'=>$this->settings->get()['portal_configuration_id']??null]))['url'];
     }
 
     public function retrieveSession(string $id): array

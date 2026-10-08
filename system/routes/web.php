@@ -135,6 +135,7 @@ Route::middleware(['auth','2fa',\App\Http\Middleware\EnsureAgreementAccepted::cl
     Route::middleware('role:owner,admin')->group(function () {
         Route::post('/abonnement/gratisperiode', [BillingController::class, 'activateFreeAccess'])->middleware('throttle:10,1')->name('billing.free-access');
         Route::post('/abonnement/checkout', [BillingController::class, 'checkout'])->middleware('throttle:10,1')->name('billing.checkout');
+        Route::get('/abonnement/portal-retur', [BillingController::class, 'refresh'])->middleware('throttle:10,1')->name('billing.portal-return');
         Route::post('/abonnement/portal', [BillingController::class, 'portal'])->middleware('throttle:10,1')->name('billing.portal');
         Route::get('/abonnement/ferdig', [BillingController::class, 'success'])->middleware('throttle:20,1')->name('billing.success');
         Route::post('/abonnement/oppdater', [BillingController::class, 'refresh'])->middleware('throttle:10,1')->name('billing.refresh');

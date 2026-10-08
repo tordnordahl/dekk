@@ -26,3 +26,7 @@ Aksepten er dokumentert elektronisk avkrysning, ikke BankID eller automatisk ful
 Utkastets ansvarsbegrensninger er ikke en garanti mot krav. Opplysninger om leverandører og slettefrister skal bekreftes, og avtalen bør gjennomgås juridisk før den publiseres.
 
 Leverandørens offentlige forhåndsgodkjenning vises med selskapsnavn, uten personnavn. Publiserende superadmins bruker-ID beholdes internt. Utkastet er utfylt med Jovia Digital AS, org.nr. 938431671, Sørlia 25, 5223 Nesttun, Norge; kontrollert mot Enhetsregisterets API 8. oktober 2026.
+
+Betalingssiden, Stripe-portalen og returkontrollen er tilgjengelige selv om ny avtaleaksept mangler. Ordinær bruk krever fortsatt både nødvendig avtaleaksept og abonnementstilgang. Retur fra Stripe henter abonnementets faktiske status; et nytt kort alene åpner ikke tilgang.
+
+Microsoft er oppgitt som fremtidig eneste hostingpartner. En slik oversikt skal ikke publiseres som gjeldende mens Domeneshop fortsatt drifter systemet. Flytting, konkret Microsoft-tjeneste, behandlingssteder og overføringsgrunnlag er ikke verifisert.

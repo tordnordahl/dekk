@@ -19,7 +19,7 @@
 <button class="button">Aktiver abonnement hos Stripe</button></form>
 @endif
 @if($organization->stripe_customer_id)
-<form method="post" action="{{ route('billing.portal') }}" data-billing-action>@csrf<button class="button">Administrer hos Stripe</button></form>
+<form method="post" action="{{ route('billing.portal') }}" data-billing-action>@csrf<button class="button">{{ in_array($organization->subscription_status,['past_due','unpaid'],true)?'Oppdater betalingsmåte og betal':'Administrer hos Stripe' }}</button></form>
 <p>Oppdater betalingskort og fakturaopplysninger, betal utestående fakturaer eller si opp abonnementet.</p>
 @endif
 <form method="post" action="{{ route('billing.refresh') }}" data-billing-action>@csrf<button class="button ghost">Oppdater status fra Stripe</button></form>
