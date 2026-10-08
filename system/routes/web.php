@@ -72,9 +72,20 @@ Route::middleware('guest')->group(function () {
     Route::get('/registrer/virksomhet', [RegistrationController::class, 'lookup'])->middleware('throttle:30,1')->name('register.lookup');
     Route::post('/registrer', [RegistrationController::class, 'store'])->middleware('throttle:5,1')->name('register.store');
 });
-Route::view('/vilkar', 'legal.terms')->name('legal.terms');
+
+Route::get('/avtale/{agreement}', [\App\Http\Controllers\ServiceAgreementController::class,'document'])->whereNumber('agreement')->name('legal.agreement');
+Route::middleware(['auth','2fa'])->group(function () {
+ Route::get('/godkjenn-avtale', [\App\Http\Controllers\ServiceAgreementController::class,'required'])->name('agreement.required');
+ Route::post('/godkjenn-avtale', [\App\Http\Controllers\ServiceAgreementController::class,'accept'])->middleware('throttle:10,1')->name('agreement.accept');
+});
+Route::middleware(['auth','2fa','superadmin'])->group(function () {
+ Route::get('/superadmin/avtaler', [\App\Http\Controllers\ServiceAgreementController::class,'edit'])->name('superadmin.agreements');
+ Route::post('/superadmin/avtaler', [\App\Http\Controllers\ServiceAgreementController::class,'publish'])->middleware('throttle:5,1')->name('superadmin.agreements.publish');
+});
+
+Route::get('/vilkar', function(\App\Services\ServiceAgreements $service) { $agreement=$service->current(); return $agreement?redirect()->route('legal.agreement',$agreement):view('legal.terms'); })->name('legal.terms');
 Route::view('/personvern', 'legal.privacy')->name('legal.privacy');
-Route::view('/databehandleravtale', 'legal.dpa')->name('legal.dpa');
+Route::get('/databehandleravtale', function(\App\Services\ServiceAgreements $service) { $agreement=$service->current(); return $agreement?redirect()->route('legal.agreement',$agreement):view('legal.dpa'); })->name('legal.dpa');
 Route::match(['get','post'],'/system-cron/{token}',[SuperAdminOperationsController::class,'run'])->middleware('throttle:3,1')->name('system.cron');
 Route::get('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'show'])->middleware('throttle:60,1')->name('checkout.show');
 Route::post('/utsjekk/{organization:public_id}',[CheckoutPortalController::class,'lookup'])->middleware('throttle:15,1')->name('checkout.lookup');
@@ -107,7 +118,7 @@ Route::middleware(['auth','2fa','superadmin'])->group(function(){
     Route::delete('/superadmin/diagnose/logg',[\App\Http\Controllers\SuperAdminDiagnosticsController::class,'clear'])->middleware('throttle:3,10')->name('superadmin.diagnostics.clear');
 });
 
-Route::middleware(['auth','2fa','impersonate','subscribed','demo.readonly','tenant.rbac',\App\Http\Middleware\ShowSubscriptionNotices::class])->group(function () {
+Route::middleware(['auth','2fa',\App\Http\Middleware\EnsureAgreementAccepted::class,'impersonate','subscribed','demo.readonly','tenant.rbac',\App\Http\Middleware\ShowSubscriptionNotices::class])->group(function () {
     Route::get('/', [OperationsController::class, 'dashboard'])->name('dashboard');
     Route::view('/hjelp', 'help.index')->name('help');
     Route::get('/krever-handling', [ActionCenterController::class, 'index'])->name('actions');

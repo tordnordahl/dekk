@@ -8,7 +8,7 @@ class EnsureOrganizationOpen
  public function handle(Request $request, Closure $next): Response
  {
   $user=$request->user();
-  if ($user && !$user->is_super_admin && !$request->routeIs('billing*','logout','login*','two-factor*')) {
+  if ($user && !$user->is_super_admin && !$request->routeIs('billing*','logout','login*','two-factor*','agreement.*','legal.*')) {
    $org=\App\Models\Organization::find($user->organization_id);
    if ($org?->suspended_at) {
     if ($request->expectsJson()) return response()->json(['message'=>'Virksomhetens tilgang er stengt. Kontakt DekkPilot.'],403);

@@ -1,0 +1,14 @@
+<!doctype html><html lang="nb"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Godkjenn avtale · DekkPilot</title><link rel="stylesheet" href="{{ route('system.asset.query',['filename'=>'app.css']) }}"><link rel="stylesheet" href="{{ route('system.asset.query',['filename'=>'admin.css']) }}"><style>.agreement-overlay{min-height:100dvh;display:grid;place-items:center;padding:24px;background:#142e25}.agreement-dialog{background:white;border-radius:24px;padding:clamp(24px,5vw,48px);max-width:640px;width:100%;box-sizing:border-box;box-shadow:0 25px 90px #0005}.agreement-dialog h1{font-size:clamp(26px,4vw,36px)}.agreement-dialog .check{display:flex;align-items:flex-start;gap:12px}.agreement-dialog .check input{width:20px;flex:none;margin-top:4px}.agreement-dialog p{line-height:1.6}.agreement-dialog .agreement-summary{white-space:pre-line}.agreement-dialog .button{margin-top:12px}</style></head>
+<body class="agreement-overlay"><main class="agreement-dialog" role="dialog" aria-modal="true" aria-labelledby="agreement-title" aria-describedby="agreement-intro">
+<p class="eyebrow">DEKKPILOT · {{ $organization->name }}</p><h1 id="agreement-title">Godkjenn avtalen for virksomheten</h1>
+<p id="agreement-intro">Vi trenger godkjenning av bruksvilkårene og databehandleravtalen før du fortsetter som eier eller administrator. Vanlige ansatte kan fortsatt arbeide.</p>
+<p class="agreement-summary">{{ $agreement->content['summary'] }}</p>
+<p><a href="{{ route('legal.agreement',$agreement) }}" target="_blank" rel="noopener">Les hele avtalen · {{ $agreement->version }} ↗</a><br><small>Åpnes i en ny fane, slik at du beholder denne siden.</small></p>
+@if($errors->any())<div class="errors" role="alert">{{ $errors->first() }}</div>@endif
+<form method="post" action="{{ route('agreement.accept') }}" class="stack">@csrf
+<input type="hidden" name="agreement_id" value="{{ $agreement->id }}"><input type="hidden" name="agreement_hash" value="{{ $agreement->sha256 }}">
+<label class="check"><input type="checkbox" name="agreement" value="1" required><span>Jeg har lest og godtar bruksvilkårene og databehandleravtalen {{ $agreement->version }}. Jeg bekrefter at jeg har fullmakt til å inngå avtalen for {{ $organization->name }}.</span></label>
+<button class="button full">Godta avtalen og fortsett</button></form>
+<p class="muted">Godkjenningen lagres med navn, virksomhet, tidspunkt, avtaleversjon og tekniske opplysninger som dokumenterer aksepten. Kontakt <a href="mailto:{{ $agreement->content['supplier_email'] }}">{{ $agreement->content['supplier_email'] }}</a> hvis du har spørsmål eller ikke ønsker å godta avtalen.</p>
+<form method="post" action="{{ route('logout') }}">@csrf<button class="button ghost">Logg ut</button></form>
+</main></body></html>

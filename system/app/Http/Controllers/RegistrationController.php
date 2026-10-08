@@ -26,7 +26,7 @@ class RegistrationController extends Controller
 
     public function form(): View
     {
-        return view('auth.register');
+        return view('auth.register',['agreement'=>app(\App\Services\ServiceAgreements::class)->current()]);
     }
 
     public function lookup(Request $request, BrregService $brreg): JsonResponse
@@ -43,6 +43,8 @@ class RegistrationController extends Controller
     public function store(Request $request, BrregService $brreg, DefaultServiceCatalog $defaultServices): RedirectResponse
     {
         if (is_string($request->input('email'))) $request->merge(['email'=>strtolower(trim($request->input('email')))]);
+        $agreements=app(\App\Services\ServiceAgreements::class);
+        $agreements->validateVersion($request,$agreements->current());
         $data = $request->validate([
             'organization_number' => ['required', 'string', 'max:20'],
             'name' => ['required', 'string', 'max:255'],
@@ -65,7 +67,9 @@ class RegistrationController extends Controller
 
         $privateDetails = $brreg->privateDetails($verified['organization_number']);
         $profile = $brreg->profile($verified);
-        $user = DB::transaction(function () use ($data, $verified, $privateDetails, $profile, $request, $defaultServices) {
+        $user = DB::transaction(function () use ($data, $verified, $privateDetails, $profile, $request, $defaultServices, $agreements) {
+            $agreement=$agreements->lockedCurrent();
+            $agreements->validateVersion($request,$agreement);
             $organization = Organization::create([
                 'public_id' => (string) Str::uuid(),
                 'name' => $verified['name'],
@@ -91,9 +95,10 @@ class RegistrationController extends Controller
             }
 
             foreach (['eula', 'privacy', 'pricing'] as $document) {
-                DB::table('legal_acceptances')->insert(['organization_id' => $organization->id, 'user_id' => $user->id, 'document' => $document, 'version' => self::LEGAL_VERSION, 'ip_address' => $request->ip(), 'user_agent' => Str::limit((string) $request->userAgent(), 500, ''), 'accepted_at' => now()]);
+                DB::table('legal_acceptances')->insert(['organization_id' => $organization->id, 'user_id' => $user->id, 'document' => $document, 'version' => $document==='privacy'?self::LEGAL_VERSION:($agreement?->version??self::LEGAL_VERSION), 'ip_address' => $request->ip(), 'user_agent' => Str::limit((string) $request->userAgent(), 500, ''), 'accepted_at' => now()]);
             }
 
+            if ($agreement) $agreements->record($request,$user,$agreement,'registration');
             return $user;
         });
 

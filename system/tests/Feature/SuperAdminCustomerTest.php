@@ -13,7 +13,7 @@ class SuperAdminCustomerTest extends TestCase
   $this->actingAs($owner)->put(route('superadmin.customer.portfolio-demo',$org),['excluded'=>1])->assertForbidden();
   $this->assertFalse((bool)$org->fresh()->exclude_from_portfolio);
   $super=$this->user(true);
-  $this->actingAs($super)->get(route('superadmin.customer',$org))->assertOk()->assertSee('Demomiljø og porteføljestatistikk');
+  $this->actingAs($super)->get(route('superadmin.customer',$org))->assertOk()->assertSee('Demomiljø og statistikk');
   $this->put(route('superadmin.customer.portfolio-demo',$org),['excluded'=>1])->assertSessionHasNoErrors();
   $this->assertTrue((bool)$org->fresh()->exclude_from_portfolio);
   $this->assertSame('active',$org->fresh()->subscription_status);
@@ -36,7 +36,7 @@ class SuperAdminCustomerTest extends TestCase
  }
  public function test_edit_is_validated_audited_and_does_not_change_subscription_or_login():void {
   $super=$this->user(true);$owner=$this->user();$org=$owner->organization;
-  $this->actingAs($super)->get(route('superadmin.customer',$org))->assertOk()->assertSee('Kundeopplysninger')->assertSee('Ikke bekreftet');
+  $this->actingAs($super)->get(route('superadmin.customer',$org))->assertOk()->assertSee('Virksomhet og kontakt')->assertSee('Ikke bekreftet');
   $data=['name'=>'Nytt verksted','email'=>'ny@example.no','phone'=>'12345678','organization_number'=>'987654321','subscription_status'=>'canceled'];
   $this->put(route('superadmin.customer.update',$org),$data)->assertSessionHasNoErrors();
   $this->assertSame('Nytt verksted',$org->fresh()->name);$this->assertSame('active',$org->fresh()->subscription_status);
