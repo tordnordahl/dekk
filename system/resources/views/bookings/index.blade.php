@@ -8,6 +8,7 @@
 @php
     $canCreate = in_array(auth()->user()->role, ['owner', 'admin', 'manager', 'customer_service'], true);
 @endphp
+@if(request()->filled('booking'))<p><a class="button ghost" href="{{ route('workday',['area'=>'schedule','schedule'=>'all']) }}">← Dagens timer</a> <a class="button ghost" href="{{ route('bookings') }}">Vis alle bookinger</a></p>@endif
 <section class="booking-toolbar panel">
     <form method="get">
         <input type="hidden" name="view" value="{{ request('view','bookings') }}">

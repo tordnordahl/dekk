@@ -55,4 +55,30 @@ class TireEditingTest extends TestCase {
         $this->get(route('admin.settings',['tab'=>'products','product_q'=>'Nokian']))->assertOk()->assertSee('data-product-search',false)->assertSee('SKU-1');
         $r=$this->getJson(route('admin.settings',['tab'=>'products','product_q'=>'NoSuchBrand']))->assertOk();$this->assertStringContainsString('Ingen varer funnet',$r->json('html'));
     }
+    public function test_workday_opens_exact_booking_and_preserves_demo_and_tenant_boundaries(): void
+    {
+        extract($this->fixture());
+        $create = fn($reference, $start) => \App\Models\Booking::create([
+            'public_id'=>Str::uuid(), 'organization_id'=>$org->id, 'branch_id'=>$branch->id,
+            'assigned_user_id'=>$user->id, 'customer_id'=>$customer->id, 'vehicle_id'=>$vehicle->id,
+            'reference'=>$reference, 'service_name'=>$reference, 'starts_at'=>$start,
+            'ends_at'=>$start->copy()->addMinutes(30), 'status'=>'scheduled',
+        ]);
+        for ($i=0;$i<31;$i++) $create('Earlier '.$i,today()->addMinutes($i));
+        $booking=$create('Selected appointment',today()->addHours(15));
+        $this->actingAs($user);
+        foreach (['mine','all','bays'] as $mode) {
+            $this->get(route('workday',['area'=>'schedule','schedule'=>$mode]))
+                ->assertOk()->assertSee(route('bookings',['booking'=>$booking->id]).'#booking-'.$booking->id,false);
+        }
+        $this->get(route('bookings',['booking'=>$booking->id]))
+            ->assertOk()->assertSee('Selected appointment')->assertDontSee('Earlier 0');
+        $past=$create('Past appointment',today()->subDays(2));
+        $this->get(route('bookings',['booking'=>$past->id]))->assertOk()->assertSee('Past appointment');
+        $this->withSession(['demo_read_only'=>true])->get(route('bookings',['booking'=>$booking->id]))->assertOk();
+        $this->post(route('bookings.complete',$booking))->assertSessionHasErrors('demo');
+        $this->assertSame('scheduled',$booking->fresh()->status);
+        $other=$this->fixture();
+        $this->actingAs($other['user'])->get(route('bookings',['booking'=>$booking->id]))->assertNotFound();
+    }
 }

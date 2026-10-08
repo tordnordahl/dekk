@@ -483,11 +483,16 @@ class OperationsController extends Controller
         $org = $request->user()->organization_id;
         $settings = ServiceSetting::where('branch_id', $request->user()->branch_id)->first();
         $bookingQuery = Booking::with(['customer', 'vehicle.tireSets', 'assignedUser', 'workBay', 'checkoutPayment'])->where('organization_id', $org);
-        if ($request->query('date') === 'today') $bookingQuery->whereDate('starts_at', today());
-        elseif (!$request->filled('from')) $bookingQuery->where('starts_at', '>=', today())->where('starts_at', '<', today()->addDays(61));
-        if ($request->filled('from')) $bookingQuery->whereDate('starts_at','>=',$request->date('from'));
-        if ($request->filled('to')) $bookingQuery->whereDate('starts_at','<=',$request->date('to'));
-        if (in_array($request->query('status'), ['scheduled','arrived','in_progress','completed','cancelled','no_show'], true)) $bookingQuery->where('status',$request->query('status'));
+        if ($request->filled('booking')) {
+            $selected = Booking::where('organization_id', $org)->findOrFail($request->integer('booking'));
+            $bookingQuery->whereKey($selected->id);
+        } else {
+            if ($request->query('date') === 'today') $bookingQuery->whereDate('starts_at', today());
+            elseif (!$request->filled('from')) $bookingQuery->where('starts_at', '>=', today())->where('starts_at', '<', today()->addDays(61));
+            if ($request->filled('from')) $bookingQuery->whereDate('starts_at','>=',$request->date('from'));
+            if ($request->filled('to')) $bookingQuery->whereDate('starts_at','<=',$request->date('to'));
+            if (in_array($request->query('status'), ['scheduled','arrived','in_progress','completed','cancelled','no_show'], true)) $bookingQuery->where('status',$request->query('status'));
+        }
         $bookings = $bookingQuery->orderBy('starts_at')->paginate(30)->withQueryString();
         $bookings->getCollection()->each(function ($booking) {
             $booking->setAttribute('completion_tire_sets', $booking->vehicle?->tireSets?->map(fn ($set) => [
