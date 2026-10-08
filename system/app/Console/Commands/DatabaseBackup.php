@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 
 class DatabaseBackup extends Command
 {
-    protected $signature = 'backup:database {--retention=14}';
+    protected $signature = 'backup:database';
     protected $description = 'Tar komprimert MySQL-backup uten å eksponere passord i prosesslisten';
 
     public function handle(): int
@@ -46,7 +46,7 @@ class DatabaseBackup extends Command
         if (!$input || !$output) throw new RuntimeException('Komprimering av backup feilet.');
         while (!feof($input)) gzwrite($output, fread($input, 1024 * 1024));
         fclose($input); gzclose($output); unlink($sql); chmod($gz, 0600);
-        $mirror=trim((string)env('BACKUP_MIRROR_PATH',''));
+        $mirror=trim((string)config('backups.mirror_path',''));
         if($mirror!==''){
             if(!str_starts_with($mirror,DIRECTORY_SEPARATOR)){$this->error('BACKUP_MIRROR_PATH må være en absolutt sti.');return self::FAILURE;}
             if(!is_dir($mirror)&&!mkdir($mirror,0700,true)&&!is_dir($mirror)){$this->error('Kunne ikke opprette speilmappe for backup.');return self::FAILURE;}
@@ -54,8 +54,7 @@ class DatabaseBackup extends Command
             if(!copy($gz,$target)||hash_file('sha256',$gz)!==hash_file('sha256',$target)){$this->error('Backup ble laget lokalt, men verifisert speilkopi feilet.');return self::FAILURE;}
             chmod($target,0600);
         }
-        $cutoff = now()->subDays(max(1, (int) $this->option('retention')))->getTimestamp();
-        foreach (glob($directory.'/dekkpilot-*.sql.gz') ?: [] as $file) if (filemtime($file) < $cutoff) unlink($file);
+        app(\App\Services\BackupRetention::class)->prune();
         $this->info(basename($gz).' · '.number_format(filesize($gz)).' bytes · SHA256 '.hash_file('sha256', $gz));
         return self::SUCCESS;
     }

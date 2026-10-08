@@ -46,6 +46,9 @@ Route::get('/api/systemressurs/{filename}', [\App\Http\Controllers\AssetControll
 Route::post('/webhooks/stripe/verksted/{organization:public_id}', \App\Http\Controllers\MerchantStripeWebhookController::class)->name('merchant.stripe.webhook');
 Route::post('/webhooks/stripe', \App\Http\Controllers\StripeWebhookController::class)->name('webhooks.stripe');
 Route::middleware(['auth','2fa','superadmin'])->group(function () {
+    Route::get('/superadmin/backuper', [SystemSettingsController::class, 'backups'])->name('superadmin.backups');
+    Route::post('/superadmin/backuper', [SystemSettingsController::class, 'createBackup'])->middleware('throttle:2,10')->name('superadmin.backups.create');
+    Route::get('/superadmin/backuper/{filename}', [SystemSettingsController::class, 'downloadBackup'])->middleware('throttle:10,1')->where('filename','[A-Za-z0-9._-]+')->name('superadmin.backups.download');
     Route::get('/superadmin/kunder/{organization}', [SuperAdminController::class, 'show'])->name('superadmin.customer');
     Route::put('/superadmin/kunder/{organization}', [SuperAdminController::class, 'update'])->name('superadmin.customer.update');
     Route::put('/superadmin/kunder/{organization}/tilgang', [SuperAdminController::class, 'access'])->name('superadmin.customer.access');

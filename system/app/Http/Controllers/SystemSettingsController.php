@@ -19,16 +19,20 @@ class SystemSettingsController extends Controller
 {
     public function index(Request $request, MailConfigurationService $mail): View
     {
-        $directory = storage_path('app/backups');
-        $backups = collect(is_dir($directory) ? glob($directory.'/dekkpilot-*.sql.gz') : [])->map(fn ($path) => [
-            'name' => basename($path), 'size' => filesize($path), 'created_at' => filemtime($path),
-        ])->sortByDesc('created_at')->values();
         return view('admin.system', [
-            'serverMail' => $request->user()->is_super_admin ? $mail->serverSettings() : [],
             'tenantMail' => $mail->tenantSettings($request->user()->organization_id),
-            'backups' => $request->user()->is_super_admin ? $backups : collect(),
-            'mysqldump' => (string) env('DB_DUMP_BINARY', 'mysqldump'),
         ]);
+    }
+
+    public function backups(Request $request): View
+    {
+        abort_unless($request->user()->is_super_admin,403);
+        $directory=storage_path('app/backups');
+        $backups=collect(is_dir($directory)?glob($directory.'/dekkpilot-*.sql.gz'):[])
+            ->filter(fn($path)=>is_file($path)&&!is_link($path))
+            ->map(fn($path)=>['name'=>basename($path),'size'=>filesize($path),'created_at'=>filemtime($path)])
+            ->sortByDesc('created_at')->values();
+        return view('superadmin.backups',compact('backups'));
     }
 
     public function saveServerMail(Request $request): RedirectResponse
@@ -103,8 +107,7 @@ class SystemSettingsController extends Controller
     public function createBackup(Request $request): RedirectResponse
     {
         abort_unless($request->user()->is_super_admin, 403);
-        $data = $request->validate(['retention'=>['required','integer','min:1','max:365']]);
-        $exit = Artisan::call('backup:database', ['--retention'=>$data['retention']]);
+        $exit = Artisan::call('backup:database');
         $output = trim(Artisan::output());
         $this->audit($request, 'backup.created', ['successful'=>$exit===0]);
         return $exit === 0 ? back()->with('success', 'Backup er opprettet. '.$output) : back()->withErrors(['backup'=>'Backup feilet. '.$output]);
