@@ -100,12 +100,54 @@ class ManagementController extends Controller
         $org=$request->user()->organization_id;
         $exists=app(\App\Services\TireBrandCatalog::class)->names($org)
             ->contains(fn($brand)=>mb_strtolower(trim($brand))===mb_strtolower($name));
-        if (!$exists) DB::table('tire_brands')->insertOrIgnore([
-            'organization_id'=>$org,'name'=>$name,'normalized_name'=>mb_strtolower($name),
+        if (!$exists) DB::table('tire_brands')->updateOrInsert(
+            ['organization_id'=>$org,'normalized_name'=>mb_strtolower($name)],['name'=>$name,'hidden'=>false,
             'created_at'=>now(),'updated_at'=>now(),
         ]);
         return redirect()->route('admin.settings',['tab'=>'products'])
             ->with('success',$exists?'Dekkmerket finnes allerede i listen.':'Dekkmerket er lagt til.');
+    }
+
+    public function changeTireBrand(Request $request): RedirectResponse
+    {
+        $data=$request->validateWithBag('tireBrands',[
+            'original_name'=>['required','string','max:100'],
+            'action'=>['required',Rule::in(['rename','delete'])],
+            'brand_name'=>['required_if:action,rename','nullable','string','max:100'],
+            'confirm'=>['exclude_unless:action,delete','required','accepted'],
+        ]);
+        $org=$request->user()->organization_id;
+        $original=trim($data['original_name']);
+        $key=mb_strtolower($original);
+        $catalog=app(\App\Services\TireBrandCatalog::class);
+        abort_unless($catalog->names($org)->contains(fn($brand)=>mb_strtolower(trim($brand))===$key),404);
+        $name=trim($data['brand_name']??'');
+        $target=mb_strtolower($name);
+        if ($data['action']==='rename' && $target!==$key &&
+            $catalog->names($org)->contains(fn($brand)=>mb_strtolower(trim($brand))===$target)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['brand_name'=>'Dette merket finnes allerede. Velg et annet navn.'])->errorBag('tireBrands');
+        }
+        DB::transaction(function() use($org,$data,$original,$key,$name,$target) {
+            // An organization-specific exclusion also covers built-in and imported brands.
+            DB::table('tire_brands')->updateOrInsert(
+                ['organization_id'=>$org,'normalized_name'=>$key],
+                ['name'=>$original,'hidden'=>true,'created_at'=>now(),'updated_at'=>now()]
+            );
+            if ($data['action']==='rename') {
+                DB::table('tire_brands')->updateOrInsert(
+                    ['organization_id'=>$org,'normalized_name'=>$target],
+                    ['name'=>$name,'hidden'=>false,'created_at'=>now(),'updated_at'=>now()]
+                );
+                TireProduct::where('organization_id',$org)->whereRaw('LOWER(TRIM(brand)) = ?',[$key])->update(['brand'=>$name]);
+            }
+            DB::table('audit_logs')->insert([
+                'organization_id'=>$org,'user_id'=>auth()->id(),'action'=>'tire_brand.'.$data['action'],
+                'metadata'=>json_encode(['before'=>$original,'after'=>$data['action']==='rename'?$name:null]),
+                'created_at'=>now(),
+            ]);
+        });
+        return redirect()->route('admin.settings',['tab'=>'products'])->with('brand_catalog_open',true)
+            ->with('success',$data['action']==='rename'?'Dekkmerket og tilhørende varer er oppdatert.':'Dekkmerket er fjernet fra listen. Eksisterende varer og historikk er beholdt.');
     }
 
     public function tireProduct(Request $request): RedirectResponse

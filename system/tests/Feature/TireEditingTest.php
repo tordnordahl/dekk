@@ -101,4 +101,34 @@ class TireEditingTest extends TestCase {
         $other['user']->update(['role'=>'warehouse']);
         $this->post(route('admin.brands.store'),['brand_name'=>'Forbidden'])->assertForbidden();
     }
+
+    public function test_brands_can_be_renamed_or_removed_without_losing_products_or_crossing_tenants(): void {
+        extract($this->fixture());
+        $other=$this->fixture();
+        $this->actingAs($user);
+        $this->patch(route('admin.brands.change'),['action'=>'rename','original_name'=>'Nokian','brand_name'=>'Nokian Tyres'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Nokian Tyres',$product->fresh()->brand);
+        $this->assertSame('Nokian',$other['product']->fresh()->brand);
+        $catalog=app(\App\Services\TireBrandCatalog::class);
+        $this->assertFalse($catalog->names($org->id)->contains('Nokian'));
+        $this->assertTrue($catalog->names($other['org']->id)->contains('Nokian'));
+        $this->patch(route('admin.brands.change'),['action'=>'rename','original_name'=>'Nokian Tyres','brand_name'=>'Continental'])
+            ->assertSessionHasErrorsIn('tireBrands','brand_name');
+        $this->patch(route('admin.brands.change'),['action'=>'delete','original_name'=>'Nokian Tyres'])
+            ->assertSessionHasErrorsIn('tireBrands','confirm');
+        $this->patch(route('admin.brands.change'),['action'=>'delete','original_name'=>'Nokian Tyres','confirm'=>1])
+            ->assertSessionHasNoErrors();
+        $this->assertFalse($catalog->names($org->id)->contains('Nokian Tyres'));
+        $this->assertSame('Nokian Tyres',$product->fresh()->brand);
+        $this->getJson(route('admin.settings',['tab'=>'products']))->assertOk()->assertSee('Nokian Tyres');
+        $this->post(route('admin.brands.store'),['brand_name'=>'Nokian Tyres'])->assertSessionHasNoErrors();
+        $this->assertTrue($catalog->names($org->id)->contains('Nokian Tyres'));
+        $this->patch(route('admin.brands.change'),['action'=>'delete','original_name'=>'Continental','confirm'=>1])->assertSessionHasNoErrors();
+        $this->assertFalse($catalog->names($org->id)->contains('Continental'));
+        $this->assertTrue($catalog->names($other['org']->id)->contains('Continental'));
+        $this->actingAs($other['user'])->patch(route('admin.brands.change'),['action'=>'delete','original_name'=>'Nokian Tyres','confirm'=>1])->assertNotFound();
+        $user->update(['role'=>'warehouse']);
+        $this->actingAs($user)->patch(route('admin.brands.change'),['action'=>'delete','original_name'=>'Michelin','confirm'=>1])->assertForbidden();
+    }
 }

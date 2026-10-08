@@ -11,7 +11,7 @@
 <form method="post" action="{{ route('admin.products.update',$product) }}" class="stack">@csrf @method('PUT')
 <div class="fields">
 @foreach(['sku'=>['Varenummer',64],'brand'=>['Merke',100],'model'=>['Modell',100],'size'=>['Dimensjon',64]] as $field=>[$label,$max])
-@if($field==='brand')<label>Merke<select name="brand" required>@foreach($tireBrands as $brand)<option value="{{ $brand }}" @selected(mb_strtolower(trim($restore?old('brand',''):$product->brand))===mb_strtolower(trim($brand)))>{{ $brand }}</option>@endforeach</select></label>
+@if($field==='brand')<label>Merke<select name="brand" required>@foreach(collect([$restore?old('brand'):$product->brand])->concat($tireBrands)->filter()->unique(fn($name)=>mb_strtolower(trim($name))) as $brand)<option value="{{ $brand }}" @selected(mb_strtolower(trim($restore?old('brand',''):$product->brand))===mb_strtolower(trim($brand)))>{{ $brand }}</option>@endforeach</select></label>
 @else<label>{{ $label }}<input name="{{ $field }}" required maxlength="{{ $max }}" value="{{ $restore?old($field):$product->$field }}"></label>@endif
 @endforeach
 <label>Sesong<select name="season">@foreach(['summer'=>'Sommer','winter'=>'Vinter','all_season'=>'Helår'] as $value=>$label)<option value="{{ $value }}" @selected(($restore?old('season'):$product->season)===$value)>{{ $label }}</option>@endforeach</select></label>

@@ -11,10 +11,13 @@ class TireBrandCatalog
 
     public function names(int $organizationId): Collection
     {
-        return collect(self::DEFAULTS)
-            ->merge(DB::table('tire_brands')->where('organization_id',$organizationId)->pluck('name'))
+        $overrides=DB::table('tire_brands')->where('organization_id',$organizationId)->get();
+        $hidden=$overrides->where('hidden',true)->pluck('normalized_name');
+        return $overrides->where('hidden',false)->pluck('name')
+            ->merge(self::DEFAULTS)
             ->merge(TireProduct::where('organization_id',$organizationId)->distinct()->pluck('brand'))
             ->filter(fn($name)=>filled($name))
+            ->reject(fn($name)=>$hidden->contains(mb_strtolower(trim($name))))
             ->unique(fn($name)=>mb_strtolower(trim($name)))
             ->sortBy(fn($name)=>mb_strtolower($name))->values();
     }
