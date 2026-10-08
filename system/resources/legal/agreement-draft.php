@@ -2,7 +2,7 @@
 // Draft only. Never published automatically: supplier and operational details must be completed.
 return [
  'summary'=>'Vi har samlet bruksvilkårene og databehandleravtalen i én avtale med dokumentert godkjenning. Les avtalen før du godtar på vegne av virksomheten.',
- 'supplier_name'=>'','supplier_number'=>'','supplier_address'=>'','supplier_email'=>'hei@dekkpilot.no','signer_name'=>'','signer_title'=>'',
+ 'supplier_name'=>'Jovia Digital AS','supplier_number'=>'938431671','supplier_address'=>'Sørlia 25, 5223 Nesttun, Norge','supplier_email'=>'hei@dekkpilot.no',
  'processors'=>'', 'deletion'=>'',
  'terms'=><<<'TEXT'
 1. Avtalens omfang og inngåelse

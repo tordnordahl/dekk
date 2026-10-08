@@ -4,7 +4,7 @@
 <article class="legal-document">
 <h2>Partene og leverandørens godkjenning</h2>
 <p><strong>{{ $agreement->content['supplier_name'] }}</strong>, org.nr. {{ $agreement->content['supplier_number'] }}<br>{{ $agreement->content['supplier_address'] }}<br><a href="mailto:{{ $agreement->content['supplier_email'] }}">{{ $agreement->content['supplier_email'] }}</a></p>
-<p>Leverandøren har forhåndsgodkjent denne avtalen ved {{ $agreement->content['signer_name'] }}, {{ $agreement->content['signer_title'] }}, på publiseringstidspunktet ovenfor. Kunden er virksomheten angitt ved registrering eller godkjenning i portalen. Avtalen inngås når kundens representant med nødvendig fullmakt aktivt krysser av og sender inn godkjenningen. Navn, virksomhet, tidspunkt og versjon dokumenteres elektronisk. Dette er ikke en BankID-signering eller kontroll av signaturrett.</p>
+<p>{{ $agreement->content['supplier_name'] }} har forhåndsgodkjent denne avtalen på publiseringstidspunktet ovenfor. Kunden er virksomheten angitt ved registrering eller godkjenning i portalen. Avtalen inngås når kundens representant med nødvendig fullmakt aktivt krysser av og sender inn godkjenningen. Navn, virksomhet, tidspunkt og versjon dokumenteres elektronisk. Dette er ikke en BankID-signering eller kontroll av signaturrett.</p>
 <h2>Om denne versjonen</h2><p class="agreement-text">{{ $agreement->content['summary'] }}</p>
 <h2>Bruksvilkår</h2><div class="agreement-text">{{ $agreement->content['terms'] }}</div>
 <h2 id="databehandleravtale">Databehandleravtale</h2><div class="agreement-text">{{ $agreement->content['dpa'] }}</div>

@@ -8,7 +8,7 @@
 <input type="hidden" name="base_version" value="{{ $agreement?->id??0 }}">
 @php($content=$agreement?->content??$draft)
 <details open><summary><strong>Leverandør og forhåndsgodkjenning</strong></summary><div class="fields">
-@foreach(['supplier_name'=>'Juridisk selskapsnavn','supplier_number'=>'Organisasjonsnummer (9 sifre)','supplier_address'=>'Adresse','supplier_email'=>'Kontakt-e-post','signer_name'=>'Navn på representant for leverandøren','signer_title'=>'Stilling / fullmakt'] as $key=>$label)
+@foreach(['supplier_name'=>'Juridisk selskapsnavn','supplier_number'=>'Organisasjonsnummer (9 sifre)','supplier_address'=>'Adresse','supplier_email'=>'Kontakt-e-post'] as $key=>$label)
 <label>{{ $label }}<input name="{{ $key }}" value="{{ old($key,$content[$key]??'') }}" required maxlength="{{ $key==='supplier_address'?500:255 }}" @if($key==='supplier_email') type="email" @endif></label>
 @endforeach
 </div></details>

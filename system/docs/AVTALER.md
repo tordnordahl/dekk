@@ -2,7 +2,7 @@
 
 ## Aktivering
 
-Migrasjonen oppretter tomt avtaleverk; den publiserer ikke utkastet og registrerer ingen aksept for eksisterende kunder. Første avtale publiseres fra **Superadmin → Avtaler** etter utfylling av juridisk leverandør, representant med fullmakt, underleverandører/behandlingssteder og eksport-/sletteprosedyre. `resources/legal/agreement-draft.php` er et utgangspunkt, ikke ferdig juridisk kvalitetssikring. Innholdet må stemme med den faktiske driften. Varslingsfrister i avtalen håndteres av leverandøren; publisering sender ikke e-post eller varsler på forhånd.
+Migrasjonen oppretter tomt avtaleverk; den publiserer ikke utkastet og registrerer ingen aksept for eksisterende kunder. Første avtale publiseres fra **Superadmin → Avtaler** etter utfylling av juridisk leverandør, underleverandører/behandlingssteder og eksport-/sletteprosedyre. `resources/legal/agreement-draft.php` er et utgangspunkt, ikke ferdig juridisk kvalitetssikring. Innholdet må stemme med den faktiske driften. Varslingsfrister i avtalen håndteres av leverandøren; publisering sender ikke e-post eller varsler på forhånd.
 
 Før publisering brukes tidligere registreringsvilkår. Etter publisering kreves aktiv aksept av gjeldende avtale ved registrering. Eksisterende eiere og administratorer sendes til en obligatorisk avtaledialog før bruk av tenant-portalen. Vanlige ansatte, superadmin og det reserverte demomiljøet blokkeres ikke. Én autorisert representant godkjenner for hele virksomheten. Superadmin kan ikke godkjenne på kundens vegne. Sperren gjelder de innloggede tenant-nettrutene, ikke eksterne kundeportaler, webhooks eller integrasjons-API-er.
 
@@ -24,3 +24,5 @@ Aksepten er dokumentert elektronisk avkrysning, ikke BankID eller automatisk ful
 - Avtaleloven, særlig § 36: https://lovdata.no/dokument/NL/lov/1918-05-31-4
 
 Utkastets ansvarsbegrensninger er ikke en garanti mot krav. Opplysninger om leverandører og slettefrister skal bekreftes, og avtalen bør gjennomgås juridisk før den publiseres.
+
+Leverandørens offentlige forhåndsgodkjenning vises med selskapsnavn, uten personnavn. Publiserende superadmins bruker-ID beholdes internt. Utkastet er utfylt med Jovia Digital AS, org.nr. 938431671, Sørlia 25, 5223 Nesttun, Norge; kontrollert mot Enhetsregisterets API 8. oktober 2026.

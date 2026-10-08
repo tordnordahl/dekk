@@ -31,7 +31,6 @@ class ServiceAgreementController extends Controller
   $data=$request->validate([
    'supplier_name'=>['required','string','max:255'],'supplier_number'=>['required','regex:/^\d{9}$/'],
    'supplier_address'=>['required','string','max:500'],'supplier_email'=>['required','email','max:255'],
-   'signer_name'=>['required','string','max:255'],'signer_title'=>['required','string','max:255'],
    'summary'=>['required','string','max:1500'],'terms'=>['required','string','min:100','max:60000'],
    'dpa'=>['required','string','min:100','max:60000'],'processors'=>['required','string','min:20','max:15000'],
    'deletion'=>['required','string','min:20','max:5000'],'confirm'=>['accepted'],

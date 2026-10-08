@@ -17,7 +17,7 @@ class ServiceAgreementTest extends TestCase
  protected function payload(): array {
   return array_replace(require resource_path('legal/agreement-draft.php'),[
    'supplier_name'=>'Testleverandør AS','supplier_number'=>'123456789','supplier_address'=>'Testveien 1, 0001 Oslo',
-   'signer_name'=>'Ola Eksempel','signer_title'=>'Daglig leder','processors'=>'Kun syntetisk testleverandør. Ingen virkelige kunder eller data.',
+   'processors'=>'Kun syntetisk testleverandør. Ingen virkelige kunder eller data.',
    'deletion'=>'Kun testdata: slettes ved avsluttet test. Backuper maksimalt 14 dager.',
    'base_version'=>app(ServiceAgreements::class)->current()?->id??0,'confirm'=>1,
   ]);
@@ -77,6 +77,9 @@ class ServiceAgreementTest extends TestCase
   $this->assertDatabaseCount('agreement_acceptances',2);
   $this->get(route('legal.agreement',$v1))->assertOk()->assertSee($v1->sha256)->assertDontSee($data['summary']);
   $this->get('/vilkar')->assertRedirect(route('legal.agreement',$v2));
+  $this->get(route('legal.agreement',$v2))->assertSee('Testleverandør AS har forhåndsgodkjent')->assertDontSee($super->name);
+  $this->assertArrayNotHasKey('signer_name',$v2->content);
+  $this->actingAs($super)->get(route('superadmin.agreements'))->assertOk()->assertDontSee('name="signer_name"',false);
   $this->actingAs($super)->get(route('superadmin.customer',$owner->organization))->assertOk()->assertSee('Godkjent DP-'.$v2->id)->assertSee($v1->sha256)->assertDontSee('@include',false);
   $this->expectException(\LogicException::class);$v1->update(['sha256'=>str_repeat('0',64)]);
  }
