@@ -112,6 +112,8 @@ class StripeBillingService
             if ($org->hasUnusedFreeGrant()) {
                 $data['discounts'] = [['coupon'=>$this->coupon($org, $price)]];
                 $data['subscription_data']['metadata']['free_month_key'] = $org->stripe_free_month_key;
+            } else {
+                $data['allow_promotion_codes'] = true;
             }
             $session = $this->request('post', '/checkout/sessions', $data, 'dekkpilot-checkout-'.$org->stripe_checkout_key);
             $org->update(['stripe_checkout_session_id'=>$session['id']]);

@@ -138,7 +138,7 @@ class StripeSubscriptionTest extends TestCase
         Http::assertSentCount(7); // price/customer/list/create + price/list/retrieve
         $this->get('/')->assertRedirect('/abonnement');
         Http::assertSent(fn($r)=>str_ends_with($r->url(),'/checkout/sessions') && $r['customer']==='cus_'.$user->organization_id
-            && $r['payment_method_collection']==='always' && $r->hasHeader('Idempotency-Key'));
+            && $r['payment_method_collection']==='always' && $r['allow_promotion_codes']===true && !isset($r['discounts']) && $r->hasHeader('Idempotency-Key'));
     }
 
     public function test_success_verifies_session_ownership_and_current_subscription(): void
@@ -215,7 +215,7 @@ class StripeSubscriptionTest extends TestCase
         $this->gateway($org);
         $this->actingAs($owner)->post('/abonnement/checkout',['accept_subscription'=>1])->assertSessionHasNoErrors();
         Http::assertSent(fn($r)=>str_ends_with($r->url(),'/coupons') && $r['percent_off']===100 && $r['duration']==='once' && $r['max_redemptions']===1 && $r['applies_to']['products']===['prod_dekk']);
-        Http::assertSent(fn($r)=>str_ends_with($r->url(),'/checkout/sessions') && isset($r['discounts'][0]['coupon']) && $r['payment_method_collection']==='always');
+        Http::assertSent(fn($r)=>str_ends_with($r->url(),'/checkout/sessions') && isset($r['discounts'][0]['coupon']) && !isset($r['allow_promotion_codes']) && $r['payment_method_collection']==='always');
     }
 
     public function test_later_free_months_are_allowed_but_retries_and_overlapping_discounts_are_not_duplicated(): void
